@@ -1,0 +1,7 @@
+{
+  "name": "MetaCash",
+  "description": "Sistema completo de gestão para eletricistas e pequenos negócios, com controle financeiro, orçamentos com PDF, CRM com IA e calculadora de empréstimos.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}

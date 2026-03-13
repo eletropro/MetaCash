@@ -1,0 +1,104 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "Dados da empresa e configurações do usuário",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "companyName": { "type": "string" },
+        "ownerName": { "type": "string" },
+        "email": { "type": "string" },
+        "phone": { "type": "string" },
+        "address": { "type": "string" },
+        "logoUrl": { "type": "string" },
+        "contractClauses": { "type": "string" }
+      },
+      "required": ["uid", "companyName"]
+    },
+    "Transaction": {
+      "title": "Transaction",
+      "description": "Entradas e saídas financeiras",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "type": { "type": "string", "enum": ["income", "expense"] },
+        "amount": { "type": "number" },
+        "description": { "type": "string" },
+        "category": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "budgetId": { "type": "string" }
+      },
+      "required": ["uid", "type", "amount", "date"]
+    },
+    "Budget": {
+      "title": "Budget",
+      "description": "Orçamentos e projetos",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "customerId": { "type": "string" },
+        "customerName": { "type": "string" },
+        "title": { "type": "string" },
+        "items": { "type": "array" },
+        "totalAmount": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "date": { "type": "string", "format": "date-time" },
+        "projectAnalysis": { "type": "object" },
+        "contractText": { "type": "string" }
+      },
+      "required": ["uid", "customerId", "totalAmount", "status"]
+    },
+    "Customer": {
+      "title": "Customer",
+      "description": "Clientes do CRM",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "phone": { "type": "string" },
+        "notes": { "type": "string" },
+        "lastInteraction": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "name"]
+    },
+    "Loan": {
+      "title": "Loan",
+      "description": "Empréstimos a juros",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "borrowerName": { "type": "string" },
+        "principal": { "type": "number" },
+        "interestRate": { "type": "number" },
+        "type": { "type": "string", "enum": ["interest_only", "principal_interest"] },
+        "startDate": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["active", "paid"] }
+      },
+      "required": ["uid", "borrowerName", "principal", "interestRate"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "Perfis de usuário"
+    },
+    "/transactions": {
+      "schema": "Transaction",
+      "description": "Transações financeiras"
+    },
+    "/budgets": {
+      "schema": "Budget",
+      "description": "Orçamentos"
+    },
+    "/customers": {
+      "schema": "Customer",
+      "description": "Clientes"
+    },
+    "/loans": {
+      "schema": "Loan",
+      "description": "Empréstimos"
+    }
+  }
+}
