@@ -17,7 +17,8 @@ export async function getFinancialInsights(transactions: Transaction[]) {
   Saídas: R$ ${summary.expense}
   Saldo: R$ ${summary.income - summary.expense}
   
-  Dê um conselho curto e motivador sobre como está a gestão financeira.`;
+  Dê um conselho curto, profissional e motivador sobre como está a gestão financeira. 
+  IMPORTANTE: Não use negrito (asteriscos como **texto**) na sua resposta. Use apenas texto simples e organizado.`;
 
   try {
     const response = await ai.models.generateContent({
@@ -32,10 +33,11 @@ export async function getFinancialInsights(transactions: Transaction[]) {
 }
 
 export async function generateCRMMessage(customer: Customer, action: 'convince' | 'thank') {
-  const prompt = `Gere uma mensagem curta e profissional para WhatsApp para um cliente chamado ${customer.name}.
+  const prompt = `Gere uma mensagem curta, profissional e amigável para WhatsApp para um cliente chamado ${customer.name}.
   Contexto: ${customer.notes || "Cliente de serviços elétricos"}.
-  Objetivo: ${action === 'convince' ? 'Convencer o cliente a fechar um orçamento ou serviço pendente.' : 'Agradecer por um serviço já realizado e se colocar à disposição.'}
-  A mensagem deve ser amigável e direta.`;
+  Objetivo: ${action === 'convince' ? 'Convencer o cliente a fechar um orçamento ou serviço pendente de forma elegante.' : 'Agradecer por um serviço já realizado, reforçar a qualidade e se colocar à disposição para futuros serviços.'}
+  A mensagem deve ser direta e pronta para enviar.
+  IMPORTANTE: Não use negrito (asteriscos como **texto**) na sua resposta. Use apenas texto simples.`;
 
   try {
     const response = await ai.models.generateContent({

@@ -69,9 +69,15 @@ export default function CRM({ user }: { user: User }) {
     const msg = await generateCRMMessage(customer, action);
     setLoadingAI(false);
     
-    const cleanPhone = customer.phone.replace(/\D/g, '');
+    let cleanPhone = customer.phone.replace(/\D/g, '');
+    // Ensure country code is present (defaulting to 55 for Brazil if not specified)
+    if (cleanPhone.length <= 11) {
+      cleanPhone = '55' + cleanPhone;
+    }
+    
     if (msg) {
-      window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, '_blank');
+      const url = `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(msg)}`;
+      window.open(url, '_blank');
     }
   };
 
