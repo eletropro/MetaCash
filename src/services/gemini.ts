@@ -1,7 +1,9 @@
 import { GoogleGenAI } from "@google/genai";
 import { Transaction, Budget, Customer } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+const ai = new GoogleGenAI({ 
+  apiKey: import.meta.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY || "" 
+});
 
 export async function getFinancialInsights(transactions: Transaction[]) {
   const summary = transactions.reduce((acc, t) => {
@@ -74,6 +76,10 @@ export async function analyzeElectricalProjectPDF(base64Data: string) {
   calculationBasis (string - breve explicação de como chegou no valor).`;
 
   try {
+    if (!(import.meta.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY)) {
+      console.error("VITE_GEMINI_API_KEY missing");
+      return null;
+    }
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: [

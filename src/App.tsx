@@ -146,6 +146,15 @@ function Layout({ children, user }: { children: React.ReactNode; user: User }) {
 
         <main className="flex-1 p-5 lg:p-10 max-w-7xl mx-auto w-full pb-28 lg:pb-10">
           {children}
+          
+          <footer className="mt-12 pt-8 border-t border-zinc-100 text-center">
+            <p className="text-[10px] text-zinc-300 uppercase tracking-widest font-bold">
+              MetaCash v1.3 • Sistema Atualizado • 
+              <span className={(import.meta.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY) ? 'text-emerald-500' : 'text-rose-500'}>
+                {(import.meta.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY) ? ' IA Conectada' : ' IA Desconectada'}
+              </span>
+            </p>
+          </footer>
         </main>
 
         {/* Bottom Navigation (Mobile Only) */}

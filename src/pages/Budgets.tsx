@@ -27,6 +27,7 @@ export default function Budgets({ user }: { user: User }) {
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [aiKeyStatus, setAiKeyStatus] = useState<'checking' | 'ok' | 'missing'>('checking');
   const [showModal, setShowModal] = useState(false);
   const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
   const [loadingAI, setLoadingAI] = useState(false);
@@ -70,6 +71,10 @@ export default function Budgets({ user }: { user: User }) {
     };
     getProfile();
 
+    // Check AI Key status
+    const key = import.meta.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+    setAiKeyStatus(key ? 'ok' : 'missing');
+
     return () => {
       unsubscribe();
       unsubscribeCust();
@@ -90,8 +95,14 @@ export default function Budgets({ user }: { user: User }) {
       reader.onload = async () => {
         const base64 = (reader.result as string).split(',')[1];
         const result = await analyzeElectricalProjectPDF(base64);
-        if (result) {
-          setAnalysis(result);
+        
+        if (!result) {
+          alert("A IA não conseguiu processar este PDF. Tente um arquivo mais nítido ou verifique sua chave de API.");
+          setLoadingAI(false);
+          return;
+        }
+
+        setAnalysis(result);
           const newItems = [];
           if (result.sockets) newItems.push({ description: 'Instalação de Tomadas', quantity: result.sockets, price: 35 });
           if (result.switches) newItems.push({ description: 'Instalação de Interruptores', quantity: result.switches, price: 35 });
@@ -117,11 +128,11 @@ export default function Budgets({ user }: { user: User }) {
           }
           
           setItems([...items, ...newItems]);
-        }
-      };
-      reader.readAsDataURL(file);
-    } catch (error) {
+        };
+        reader.readAsDataURL(file);
+      } catch (error) {
       console.error("Error uploading file:", error);
+      alert("Erro ao analisar o PDF. Verifique se a chave da IA está correta nas configurações da Vercel (VITE_GEMINI_API_KEY).");
     } finally {
       setLoadingAI(false);
     }
@@ -287,7 +298,30 @@ Assinatura do Prestador`
       doc.text('CONTRATO DE PRESTAÇÃO DE SERVIÇOS', margin, 45);
       doc.setFontSize(10);
       doc.setTextColor(60, 60, 60);
-      const splitText = doc.splitTextToSize(budget.contractText || '', 170);
+      
+      const text = budget.contractText || `CONTRATO DE PRESTAÇÃO DE SERVIÇOS ELÉTRICOS
+
+1. OBJETO DO CONTRATO
+O presente contrato tem por objeto a prestação de serviços de ${budget.title}, conforme itens descritos no orçamento anexo.
+
+2. PRAZO DE EXECUÇÃO
+O prazo estimado para a conclusão dos serviços é de ${budget.contractDetails?.deadline || 'A combinar'}.
+
+3. VALOR E FORMA DE PAGAMENTO
+O valor total dos serviços é de R$ ${budget.totalAmount.toLocaleString('pt-BR')}.
+Condições de pagamento: ${budget.contractDetails?.paymentTerms || 'A combinar'}.
+
+4. GARANTIA
+O prestador oferece garantia de ${budget.contractDetails?.warranty || '90 dias'} sobre a mão de obra executada.
+
+5. OBRIGAÇÕES DO CONTRATANTE
+Fornecer os materiais necessários (salvo acordo em contrário) e livre acesso ao local da obra.
+
+Data: ${new Date(budget.date).toLocaleDateString('pt-BR')}
+__________________________
+Assinatura do Prestador`;
+
+      const splitText = doc.splitTextToSize(text, 170);
       doc.text(splitText, margin, 55);
     } else {
       doc.setFontSize(16);
@@ -302,13 +336,14 @@ Assinatura do Prestador`
 
     const fileName = `${type}_${budget.customerName.replace(/\s/g, '_')}.pdf`;
     
-    // For mobile browsers, it's often better to open in a new tab
-    if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+    // For mobile browsers, we try to save directly first, then fallback to blob/open
+    try {
+      doc.save(fileName);
+    } catch (e) {
+      console.error("Direct save failed, trying blob fallback", e);
       const blob = doc.output('blob');
       const url = URL.createObjectURL(blob);
       window.open(url, '_blank');
-    } else {
-      doc.save(fileName);
     }
   };
 
