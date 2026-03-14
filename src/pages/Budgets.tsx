@@ -21,7 +21,7 @@ import {
   Trash2 as TrashIcon
 } from 'lucide-react';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 
 export default function Budgets({ user }: { user: User }) {
   const [budgets, setBudgets] = useState<Budget[]>([]);
@@ -247,6 +247,13 @@ Assinatura do Prestador`
     console.log(`Generating ${type} PDF for ${budget.customerName}...`);
     
     try {
+      // Safety checks for basic data
+      const safeCustomerName = budget.customerName || 'Cliente não identificado';
+      const safeTitle = budget.title || 'Serviço sem título';
+      const safeTotal = typeof budget.totalAmount === 'number' ? budget.totalAmount : 0;
+      const safeDate = budget.date ? new Date(budget.date) : new Date();
+      const formattedDate = isNaN(safeDate.getTime()) ? new Date().toLocaleDateString('pt-BR') : safeDate.toLocaleDateString('pt-BR');
+
       const doc = new jsPDF();
       const margin = 20;
       const pageWidth = doc.internal.pageSize.getWidth();
@@ -311,19 +318,24 @@ Assinatura do Prestador`
         doc.setFont('helvetica', 'normal');
         doc.setTextColor(51, 65, 85);
         doc.text([
-          `Cliente: ${budget.customerName}`,
-          `Data de Emissão: ${new Date(budget.date).toLocaleDateString('pt-BR')}`,
-          `Projeto: ${budget.title}`
+          `Cliente: ${safeCustomerName}`,
+          `Data de Emissão: ${formattedDate}`,
+          `Projeto: ${safeTitle}`
         ], margin + 8, 102, { lineHeightFactor: 1.4 });
 
-        const tableData = (budget.items || []).map(item => [
-          item.description,
-          item.quantity.toString(),
-          `R$ ${item.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-          `R$ ${(item.quantity * item.price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
-        ]);
+        const itemsArray = Array.isArray(budget.items) ? budget.items : [];
+        const tableData = itemsArray.map(item => {
+          const q = typeof item.quantity === 'number' ? item.quantity : 0;
+          const p = typeof item.price === 'number' ? item.price : 0;
+          return [
+            item.description || 'Item sem descrição',
+            q.toString(),
+            `R$ ${p.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+            `R$ ${(q * p).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+          ];
+        });
 
-        (doc as any).autoTable({
+        autoTable(doc, {
           startY: 130,
           head: [['Descrição do Serviço / Item', 'Qtd', 'Vlr. Unitário', 'Subtotal']],
           body: tableData,
@@ -352,7 +364,8 @@ Assinatura do Prestador`
           }
         });
 
-        const finalY = (doc as any).lastAutoTable.finalY + 20;
+        const lastTable = (doc as any).lastAutoTable;
+        const finalY = (lastTable ? lastTable.finalY : 130) + 20;
         
         // Total Highlight Box (Premium Look)
         doc.setFillColor(15, 23, 42);
@@ -360,7 +373,7 @@ Assinatura do Prestador`
         doc.setFontSize(14);
         doc.setFont('helvetica', 'bold');
         doc.setTextColor(255, 255, 255);
-        doc.text(`VALOR TOTAL: R$ ${budget.totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, pageWidth - margin - 5, finalY + 1, { align: 'right' });
+        doc.text(`VALOR TOTAL: R$ ${safeTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, pageWidth - margin - 5, finalY + 1, { align: 'right' });
         
         // AI Note if applicable
         if (budget.projectAnalysis?.calculationBasis) {
@@ -396,13 +409,13 @@ Assinatura do Prestador`
         const contractText = budget.contractText || `CONTRATO DE PRESTAÇÃO DE SERVIÇOS ELÉTRICOS
 
 1. OBJETO DO CONTRATO
-O presente contrato tem por objeto a prestação de serviços de ${budget.title}, conforme itens descritos no orçamento anexo.
+O presente contrato tem por objeto a prestação de serviços de ${safeTitle}, conforme itens descritos no orçamento anexo.
 
 2. PRAZO DE EXECUÇÃO
 O prazo estimado para a conclusão dos serviços é de ${budget.contractDetails?.deadline || 'A combinar'}.
 
 3. VALOR E FORMA DE PAGAMENTO
-O valor total dos serviços é de R$ ${budget.totalAmount.toLocaleString('pt-BR')}.
+O valor total dos serviços é de R$ ${safeTotal.toLocaleString('pt-BR')}.
 Condições de pagamento: ${budget.contractDetails?.paymentTerms || 'A combinar'}.
 
 4. GARANTIA
@@ -411,7 +424,7 @@ O prestador oferece garantia de ${budget.contractDetails?.warranty || '90 dias'}
 5. OBRIGAÇÕES DO CONTRATANTE
 Fornecer os materiais necessários (salvo acordo em contrário) e livre acesso ao local da obra.
 
-Data: ${new Date(budget.date).toLocaleDateString('pt-BR')}
+Data: ${formattedDate}
 
 __________________________
 Assinatura do Prestador`;
@@ -434,7 +447,7 @@ Assinatura do Prestador`;
         doc.setFont('helvetica', 'normal');
         doc.setTextColor(51, 65, 85);
         
-        const receiptText = `Recebemos de ${budget.customerName.toUpperCase()}, a importância de R$ ${budget.totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} referente à quitação total dos serviços de ${budget.title.toUpperCase()} realizados conforme proposta técnica aprovada.
+        const receiptText = `Recebemos de ${safeCustomerName.toUpperCase()}, a importância de R$ ${safeTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} referente à quitação total dos serviços de ${safeTitle.toUpperCase()} realizados conforme proposta técnica aprovada.
 
 Damos por este recibo a plena e geral quitação dos valores acima mencionados, nada mais havendo a reclamar sobre o objeto deste pagamento.`;
         
@@ -452,7 +465,7 @@ Damos por este recibo a plena e geral quitação dos valores acima mencionados, 
 
       addFooter(doc);
 
-      const fileName = `${type}_${budget.customerName.replace(/\s/g, '_')}.pdf`;
+      const fileName = `${type}_${safeCustomerName.replace(/\s/g, '_')}.pdf`;
       
       // Standard Save (Most reliable)
       doc.save(fileName);
@@ -460,7 +473,7 @@ Damos por este recibo a plena e geral quitação dos valores acima mencionados, 
       console.log("PDF generated and download triggered.");
     } catch (error) {
       console.error("Error generating PDF:", error);
-      alert("Ocorreu um erro ao gerar o PDF. Verifique os dados do orçamento.");
+      alert(`Erro ao gerar PDF: ${error instanceof Error ? error.message : 'Erro desconhecido'}. Verifique se os dados do orçamento estão completos.`);
     }
   };
 
