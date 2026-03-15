@@ -3,7 +3,10 @@ import { Transaction, Budget, Customer } from "../types";
 
 // Helper to get the API key
 const getApiKey = () => {
-  return import.meta.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY || "";
+  // Priority: 1. Environment Variable, 2. User Provided Fallback
+  return import.meta.env.VITE_GEMINI_API_KEY || 
+         process.env.GEMINI_API_KEY || 
+         "AIzaSyAz5cJEBrp6sCPcF2KhIIhoCGc0n3OHWQc";
 };
 
 export async function getFinancialInsights(transactions: Transaction[]) {
