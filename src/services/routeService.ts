@@ -23,18 +23,16 @@ export async function calculateRoute(
   destCoords?: [number, number]
 ): Promise<RouteResult> {
   const ai = getAi();
+  
   const originStr = originCoords ? `${originCoords[0]}, ${originCoords[1]}` : origin;
   const destStr = destCoords ? `${destCoords[0]}, ${destCoords[1]}` : destination;
 
-  // Prompt mais direto e imperativo
-  const prompt = `GPS: Calcule a distância de condução entre estas coordenadas/endereços.
-  DE: ${originStr}
-  PARA: ${destStr}
+  const prompt = `Pesquise no Google Maps a rota de carro entre:
+  ORIGEM: ${originStr}
+  DESTINO: ${destStr}
   
-  Use obrigatoriamente a ferramenta Google Maps.
-  Responda EXATAMENTE neste formato:
-  DISTANCIA: [valor numérico] km
-  TEMPO: [texto do tempo]`;
+  Responda com a distância total em quilômetros (km) e o tempo de viagem.
+  Exemplo de resposta: "A distância é 15.5 km e o tempo é 20 min"`;
 
   try {
     const response = await ai.models.generateContent({
@@ -42,33 +40,34 @@ export async function calculateRoute(
       contents: prompt,
       config: {
         tools: [{ googleMaps: {} }],
-        temperature: 0, // Mais determinístico
+        temperature: 0.2,
       },
     });
 
     const text = response.text || '';
-    console.log("Resposta do GPS:", text);
+    console.log("GPS Response:", text);
 
-    // Regex mais flexível para capturar números com vírgula ou ponto
-    const distanceMatch = text.match(/DISTANCIA:\s*([\d.,]+)\s*km/i);
-    const durationMatch = text.match(/TEMPO:\s*([^\n|]+)/i);
+    // Regex ultra-abrangente
+    // Pega números como 10, 10.5, 10,5 seguidos de km ou quilômetros
+    const distanceMatch = text.match(/(\d+[.,]?\d*)\s*(km|quil[ôo]metros)/i);
+    const durationMatch = text.match(/(\d+)\s*(min|hora|hr|h|seg)/i);
     
     let distance = 0;
     if (distanceMatch) {
-      // Converte vírgula em ponto para o parseFloat
-      const distStr = distanceMatch[1].replace(',', '.');
-      distance = parseFloat(distStr);
+      distance = parseFloat(distanceMatch[1].replace(',', '.'));
+    } else {
+      // Fallback: procura qualquer número que venha antes de "km" no texto todo
+      const fallbackMatch = text.toLowerCase().match(/([\d.,]+)\s*km/);
+      if (fallbackMatch) {
+        distance = parseFloat(fallbackMatch[1].replace(',', '.'));
+      }
     }
 
-    // Tenta extrair URL dos grounding chunks
     let mapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(originStr)}&destination=${encodeURIComponent(destStr)}`;
     const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
     if (chunks) {
       for (const chunk of chunks) {
-        if (chunk.maps?.uri) {
-          mapsUrl = chunk.maps.uri;
-          break;
-        }
+        if (chunk.maps?.uri) mapsUrl = chunk.maps.uri;
       }
     }
 
@@ -78,17 +77,17 @@ export async function calculateRoute(
 
     return {
       distanceKm: distance,
-      durationText: durationMatch ? durationMatch[1].trim() : "N/A",
+      durationText: durationMatch ? durationMatch[0] : "Ver mapa",
       fuelCost: cost,
       mapsUrl: mapsUrl,
       originCoords: originCoords,
       destCoords: destCoords
     };
   } catch (error) {
-    console.error("Erro crítico calculateRoute:", error);
+    console.error("Erro calculateRoute:", error);
     return {
       distanceKm: 0,
-      durationText: "Erro de conexão",
+      durationText: "Erro",
       fuelCost: 0,
       mapsUrl: `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}`,
     };
@@ -97,10 +96,8 @@ export async function calculateRoute(
 
 export async function searchAddress(query: string): Promise<{ address: string; coords?: [number, number] }> {
   const ai = getAi();
-  const prompt = `Localize o endereço completo e as coordenadas (latitude e longitude) para: "${query}".
-  Use o Google Maps. Responda no formato:
-  Endereço: [endereço completo]
-  Coordenadas: [lat], [lng]`;
+  const prompt = `Localize o endereço completo e as coordenadas geográficas exatas (latitude e longitude) para: "${query}".
+  Use o Google Maps. Responda com o endereço formatado e as coordenadas no formato [lat, lng].`;
 
   try {
     const response = await ai.models.generateContent({
@@ -112,16 +109,20 @@ export async function searchAddress(query: string): Promise<{ address: string; c
     });
 
     const text = response.text || '';
-    const addressMatch = text.match(/Endereço:\s*([^\n]+)/i);
-    const coordsMatch = text.match(/Coordenadas:\s*([\d.-]+)\s*,\s*([\d.-]+)/i);
-
+    // Busca por padrões de coordenadas: [-23.55, -46.63] ou apenas os números
+    const coordsMatch = text.match(/\[?\s*(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)\s*\]?/);
+    
     let coords: [number, number] | undefined = undefined;
     if (coordsMatch) {
       coords = [parseFloat(coordsMatch[1]), parseFloat(coordsMatch[2])];
     }
 
+    // Tenta pegar o endereço da primeira linha ou de um padrão
+    const addressMatch = text.match(/Endereço:\s*([^\n]+)/i) || text.match(/^([^,\n]+,[^,\n]+,[^,\n]+)/);
+    const address = addressMatch ? addressMatch[1].trim() : text.split('\n')[0].trim();
+
     return { 
-      address: addressMatch ? addressMatch[1].trim() : query, 
+      address: address || query, 
       coords 
     };
   } catch (error) {
@@ -133,7 +134,7 @@ export async function searchAddress(query: string): Promise<{ address: string; c
 export async function reverseGeocode(lat: number, lng: number): Promise<string> {
   const ai = getAi();
   const prompt = `Qual é o endereço exato para estas coordenadas: ${lat}, ${lng}? 
-  Use o Google Maps. Responda apenas o endereço.`;
+  Use o Google Maps. Responda apenas o endereço formatado.`;
 
   try {
     const response = await ai.models.generateContent({

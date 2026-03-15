@@ -192,6 +192,12 @@ export default function Profile({ user }: { user: User }) {
         }
       }
 
+      if (!profile.address || !destination) {
+        setCalcError("Certifique-se de que ambos os endereços estão preenchidos.");
+        setCalculating(false);
+        return;
+      }
+
       const res = await calculateRoute(
         profile.address,
         destination,
@@ -202,7 +208,7 @@ export default function Profile({ user }: { user: User }) {
       );
       
       if (res.distanceKm === 0) {
-        setCalcError("Não foi possível calcular a rota. Verifique se os endereços estão corretos ou tente clicar no mapa.");
+        setCalcError("Não foi possível calcular a distância. Tente ser mais específico no endereço ou clique diretamente no mapa para marcar os pontos.");
       } else {
         setRouteResult(res);
         if (res.originCoords) setOriginCoords(res.originCoords);
@@ -212,8 +218,8 @@ export default function Profile({ user }: { user: User }) {
         }
       }
     } catch (error) {
-      console.error(error);
-      setCalcError("Erro na conexão com o serviço de mapas.");
+      console.error("Erro no cálculo:", error);
+      setCalcError("Ocorreu um erro ao tentar calcular a rota. Verifique sua conexão.");
     } finally {
       setCalculating(false);
     }
