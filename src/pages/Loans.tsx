@@ -31,7 +31,12 @@ export default function Loans({ user }: { user: User }) {
   const [notes, setNotes] = useState('');
 
   useEffect(() => {
-    const q = query(collection(db, 'loans'), where('uid', '==', user.uid), orderBy('startDate', 'desc'));
+    const q = query(
+      collection(db, 'loans'), 
+      where('uid', '==', user.uid), 
+      where('status', '==', 'active'),
+      orderBy('startDate', 'desc')
+    );
     const unsubscribe = onSnapshot(q, (snapshot) => {
       setLoans(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Loan)));
     }, (error) => {
@@ -215,11 +220,32 @@ export default function Loans({ user }: { user: User }) {
   };
 
   const handleFinishLoan = async (loan: Loan) => {
-    if (window.confirm('Deseja finalizar este contrato de empréstimo?')) {
-      await updateDoc(doc(db, 'loans', loan.id!), {
-        status: 'paid'
-      });
-      setShowManageModal(null);
+    if (window.confirm(`Deseja quitar o valor total de R$ ${loan.principal.toLocaleString('pt-BR')} e finalizar este contrato?`)) {
+      try {
+        const remainingAmount = loan.principal;
+        
+        await updateDoc(doc(db, 'loans', loan.id!), {
+          principal: 0,
+          paidPrincipal: (loan.paidPrincipal || 0) + remainingAmount,
+          status: 'paid'
+        });
+
+        await addDoc(collection(db, 'transactions'), {
+          uid: user.uid,
+          type: 'income',
+          amount: remainingAmount,
+          description: `Quitação de Contrato: ${loan.customerName}`,
+          category: 'Empréstimo',
+          date: new Date().toISOString(),
+          loanId: loan.id
+        });
+
+        alert('Contrato quitado com sucesso!');
+        setShowManageModal(null);
+      } catch (error) {
+        console.error("Error finishing loan:", error);
+        alert('Erro ao quitar contrato.');
+      }
     }
   };
 

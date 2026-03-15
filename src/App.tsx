@@ -26,6 +26,7 @@ import Loans from './pages/Loans';
 import Profile from './pages/Profile';
 import Login from './pages/Login';
 import InstallPrompt from './components/InstallPrompt';
+import NotificationManager from './components/NotificationManager';
 
 function Layout({ children, user }: { children: React.ReactNode; user: User }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -42,6 +43,7 @@ function Layout({ children, user }: { children: React.ReactNode; user: User }) {
 
   return (
     <div className="min-h-screen bg-[#0F1115] text-zinc-100 flex">
+      <NotificationManager user={user} />
       {/* Desktop Sidebar */}
       <aside className="hidden lg:flex flex-col w-72 bg-[#16191E] border-r border-white/5 sticky top-0 h-screen z-40">
         <div className="p-8 flex items-center gap-3">

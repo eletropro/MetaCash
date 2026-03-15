@@ -2,14 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { User } from 'firebase/auth';
 import { collection, query, where, onSnapshot, orderBy, limit, doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
-import { Transaction, UserProfile } from '../types';
+import { Transaction, UserProfile, Loan } from '../types';
 import { getFinancialInsights } from '../services/gemini';
-import { motion } from 'motion/react';
-import { TrendingUp, TrendingDown, Wallet, Sparkles, ArrowRight } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { TrendingUp, TrendingDown, Wallet, Sparkles, ArrowRight, AlertCircle, Calendar } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export default function Home({ user }: { user: User }) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [loans, setLoans] = useState<Loan[]>([]);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [insights, setInsights] = useState<string>('Carregando insights...');
   const [loading, setLoading] = useState(true);
@@ -37,6 +38,16 @@ export default function Home({ user }: { user: User }) {
       setLoading(false);
     });
 
+    const qLoans = query(
+      collection(db, 'loans'),
+      where('uid', '==', user.uid),
+      where('status', '==', 'active')
+    );
+
+    const unsubscribeLoans = onSnapshot(qLoans, (snapshot) => {
+      setLoans(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Loan)));
+    });
+
     const fetchProfile = async () => {
       const docRef = doc(db, 'users', user.uid);
       const docSnap = await getDoc(docRef);
@@ -46,8 +57,14 @@ export default function Home({ user }: { user: User }) {
     };
     fetchProfile();
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      unsubscribeLoans();
+    };
   }, [user.uid]);
+
+  const today = new Date().getDate();
+  const dueToday = loans.filter(l => l.paymentDay === today);
 
   const totals = transactions.reduce((acc, t) => {
     if (t.type === 'income') acc.income += t.amount;
@@ -74,6 +91,40 @@ export default function Home({ user }: { user: User }) {
           </Link>
         </div>
       </header>
+
+      <AnimatePresence>
+        {dueToday.length > 0 && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="overflow-hidden"
+          >
+            <div className="bg-amber-500/10 border border-amber-500/20 rounded-[2rem] p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-amber-500/20 text-amber-500 rounded-2xl flex items-center justify-center shrink-0">
+                  <AlertCircle size={24} />
+                </div>
+                <div>
+                  <h4 className="font-bold text-white">Parcelas Vencendo Hoje</h4>
+                  <p className="text-xs text-zinc-400">Você tem {dueToday.length} {dueToday.length === 1 ? 'parcela' : 'parcelas'} de empréstimo para receber hoje.</p>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {dueToday.map(loan => (
+                  <div key={loan.id} className="bg-zinc-900/50 border border-white/5 px-3 py-1.5 rounded-xl flex items-center gap-2">
+                    <Calendar size={12} className="text-amber-500" />
+                    <span className="text-[10px] font-bold text-zinc-300">{loan.customerName}</span>
+                  </div>
+                ))}
+                <Link to="/loans" className="btn-primary py-2 px-4 text-xs ml-2">
+                  Gerenciar
+                </Link>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Balance Card */}
