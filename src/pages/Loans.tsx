@@ -15,6 +15,7 @@ export default function Loans({ user }: { user: User }) {
   const [manageDate, setManageDate] = useState(new Date().toISOString().split('T')[0]);
   const [loanTransactions, setLoanTransactions] = useState<any[]>([]);
   const [editingLoan, setEditingLoan] = useState<Loan | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
   
   // Calculator state
@@ -328,6 +329,10 @@ export default function Loans({ user }: { user: User }) {
     }
   };
 
+  const filteredLoans = loans.filter(l => 
+    l.customerName.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-10 sm:pb-0">
       <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -340,8 +345,19 @@ export default function Loans({ user }: { user: User }) {
         </button>
       </header>
 
+      <div className="relative">
+        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" size={18} />
+        <input
+          type="text"
+          placeholder="Buscar cliente pelo nome..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="input-saas pl-12 py-3"
+        />
+      </div>
+
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-        {loans.map((l) => (
+        {filteredLoans.map((l) => (
           <motion.div
             key={l.id}
             layout
