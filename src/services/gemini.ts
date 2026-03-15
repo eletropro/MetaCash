@@ -51,16 +51,35 @@ export async function getFinancialInsights(transactions: Transaction[]) {
   }
 }
 
-export async function generateCRMMessage(customer: Customer, action: 'convince' | 'thank') {
+export async function generateCRMMessage(
+  customer: Customer, 
+  action: 'convince' | 'thank', 
+  history?: { budgets: Budget[], loans: any[] }
+) {
   const apiKey = getApiKey();
   if (!apiKey) return "Configure a chave de API para usar esta função.";
 
   const ai = new GoogleGenAI({ apiKey });
 
+  let historyContext = "";
+  if (history) {
+    if (history.budgets.length > 0) {
+      historyContext += "\nHistórico de Serviços/Orçamentos:\n" + 
+        history.budgets.map(b => `- ${b.title} (R$ ${b.totalAmount}, Status: ${b.status})`).join("\n");
+    }
+    if (history.loans.length > 0) {
+      historyContext += "\nHistórico de Empréstimos:\n" + 
+        history.loans.map(l => `- Empréstimo de R$ ${l.principal} (Taxa: ${l.interestRate}%, Status: ${l.status})`).join("\n");
+    }
+  }
+
   const prompt = `Gere uma mensagem curta, profissional e amigável para WhatsApp para um cliente chamado ${customer.name}.
-  Contexto: ${customer.notes || "Cliente de serviços elétricos"}.
-  Objetivo: ${action === 'convince' ? 'Convencer o cliente a fechar um orçamento ou serviço pendente de forma elegante.' : 'Agradecer por um serviço já realizado, reforçar a qualidade e se colocar à disposição para futuros serviços.'}
-  A mensagem deve ser direta e pronta para enviar.
+  Contexto do Cliente: ${customer.notes || "Cliente de serviços elétricos"}.
+  ${historyContext}
+  
+  Objetivo: ${action === 'convince' ? 'Convencer o cliente a fechar um orçamento ou serviço pendente de forma elegante, mencionando especificamente o que ele consumiu ou está pendente.' : 'Agradecer por um serviço ou empréstimo já realizado, mencionando especificamente o que ele consumiu, reforçar a qualidade e se colocar à disposição para futuros serviços.'}
+  
+  A mensagem deve ser direta, personalizada com base no histórico acima e pronta para enviar.
   IMPORTANTE: Não use negrito (asteriscos como **texto**) na sua resposta. Use apenas texto simples.`;
 
   try {

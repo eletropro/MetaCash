@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { User } from 'firebase/auth';
 import { collection, addDoc, query, where, onSnapshot, orderBy, deleteDoc, doc } from 'firebase/firestore';
 import { db } from '../firebase';
-import { Customer, Budget } from '../types';
+import { Customer, Budget, Loan } from '../types';
 import { generateCRMMessage } from '../services/gemini';
 import { motion, AnimatePresence } from 'motion/react';
 import { Plus, MessageSquare, User as UserIcon, Trash2, Sparkles, MapPin, CreditCard, History, X } from 'lucide-react';
@@ -10,6 +10,7 @@ import { Plus, MessageSquare, User as UserIcon, Trash2, Sparkles, MapPin, Credit
 export default function CRM({ user }: { user: User }) {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
+  const [loans, setLoans] = useState<Loan[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   
@@ -33,9 +34,15 @@ export default function CRM({ user }: { user: User }) {
       setBudgets(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Budget)));
     });
 
+    const qLoans = query(collection(db, 'loans'), where('uid', '==', user.uid));
+    const unsubscribeLoans = onSnapshot(qLoans, (snapshot) => {
+      setLoans(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Loan)));
+    });
+
     return () => {
       unsubscribe();
       unsubscribeBudgets();
+      unsubscribeLoans();
     };
   }, [user.uid]);
 
@@ -72,7 +79,13 @@ export default function CRM({ user }: { user: User }) {
 
     setLoadingAI(`${customer.id}-${action}`);
     try {
-      const msg = await generateCRMMessage(customer, action);
+      const customerBudgets = budgets.filter(b => b.customerId === customer.id);
+      const customerLoans = loans.filter(l => l.customerId === customer.id);
+      
+      const msg = await generateCRMMessage(customer, action, { 
+        budgets: customerBudgets, 
+        loans: customerLoans 
+      });
       
       if (msg) {
         let cleanPhone = customer.phone.replace(/\D/g, '');
@@ -99,7 +112,9 @@ export default function CRM({ user }: { user: User }) {
   };
 
   const getCustomerHistory = (customerId: string) => {
-    return budgets.filter(b => b.customerId === customerId);
+    const b = budgets.filter(b => b.customerId === customerId);
+    const l = loans.filter(l => l.customerId === customerId);
+    return { budgets: b, loans: l };
   };
 
   return (
@@ -216,21 +231,38 @@ export default function CRM({ user }: { user: User }) {
                 </button>
               </div>
               <div className="p-6 overflow-y-auto space-y-4 no-scrollbar">
-                {getCustomerHistory(selectedCustomer.id!).length > 0 ? (
-                  getCustomerHistory(selectedCustomer.id!).map(b => (
-                    <div key={b.id} className="p-4 rounded-2xl border border-zinc-800 bg-zinc-800/50 flex justify-between items-center">
-                      <div>
-                        <p className="font-bold text-white">{b.title}</p>
-                        <p className="text-xs text-zinc-500">{new Date(b.date).toLocaleDateString('pt-BR')}</p>
+                {getCustomerHistory(selectedCustomer.id!).budgets.length > 0 || getCustomerHistory(selectedCustomer.id!).loans.length > 0 ? (
+                  <>
+                    {getCustomerHistory(selectedCustomer.id!).budgets.map(b => (
+                      <div key={b.id} className="p-4 rounded-2xl border border-zinc-800 bg-zinc-800/50 flex justify-between items-center">
+                        <div>
+                          <p className="text-[10px] text-emerald-500 uppercase font-bold tracking-widest mb-1">Serviço/Orçamento</p>
+                          <p className="font-bold text-white">{b.title}</p>
+                          <p className="text-xs text-zinc-500">{new Date(b.date).toLocaleDateString('pt-BR')}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold text-emerald-500">R$ {b.totalAmount.toLocaleString('pt-BR')}</p>
+                          <span className={`text-[10px] font-bold uppercase ${b.status === 'approved' ? 'text-emerald-500' : 'text-amber-500'}`}>
+                            {b.status}
+                          </span>
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <p className="font-bold text-emerald-500">R$ {b.totalAmount.toLocaleString('pt-BR')}</p>
-                        <span className={`text-[10px] font-bold uppercase ${b.status === 'approved' ? 'text-emerald-500' : 'text-amber-500'}`}>
-                          {b.status}
-                        </span>
+                    ))}
+                    {getCustomerHistory(selectedCustomer.id!).loans.map(l => (
+                      <div key={l.id} className="p-4 rounded-2xl border border-zinc-800 bg-amber-500/5 flex justify-between items-center">
+                        <div>
+                          <p className="text-[10px] text-amber-500 uppercase font-bold tracking-widest mb-1">Empréstimo</p>
+                          <p className="font-bold text-white">R$ {l.principal.toLocaleString('pt-BR')}</p>
+                          <p className="text-xs text-zinc-500">{new Date(l.startDate).toLocaleDateString('pt-BR')} • {l.interestRate}% juros</p>
+                        </div>
+                        <div className="text-right">
+                          <span className={`text-[10px] font-bold uppercase ${l.status === 'active' ? 'text-amber-500' : 'text-emerald-500'}`}>
+                            {l.status === 'active' ? 'Ativo' : 'Pago'}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                  ))
+                    ))}
+                  </>
                 ) : (
                   <p className="text-center text-zinc-500 py-10">Nenhum registro encontrado para este cliente.</p>
                 )}

@@ -69,7 +69,9 @@ export interface Customer {
 export interface Loan {
   id?: string;
   uid: string;
-  borrowerName: string;
+  customerId?: string;
+  customerName: string;
+  borrowerName?: string; // Keep for backward compatibility
   principal: number;
   interestRate: number;
   type: 'interest_only' | 'principal_interest';

@@ -2,15 +2,19 @@ import React, { useState, useEffect } from 'react';
 import { User } from 'firebase/auth';
 import { collection, addDoc, query, where, onSnapshot, orderBy, deleteDoc, doc } from 'firebase/firestore';
 import { db } from '../firebase';
-import { Loan } from '../types';
+import { Loan, Customer } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
-import { Plus, Calculator, Trash2, Percent, Landmark, X, ArrowRight } from 'lucide-react';
+import { Plus, Calculator, Trash2, Percent, Landmark, X, ArrowRight, Search, ChevronRight } from 'lucide-react';
 
 export default function Loans({ user }: { user: User }) {
   const [loans, setLoans] = useState<Loan[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [showModal, setShowModal] = useState(false);
   
   // Calculator state
+  const [customerSearch, setCustomerSearch] = useState('');
+  const [customerId, setCustomerId] = useState('');
+  const [showCustomerResults, setShowCustomerResults] = useState(false);
   const [borrowerName, setBorrowerName] = useState('');
   const [principal, setPrincipal] = useState('');
   const [interestRate, setInterestRate] = useState('');
@@ -21,14 +25,29 @@ export default function Loans({ user }: { user: User }) {
     const unsubscribe = onSnapshot(q, (snapshot) => {
       setLoans(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Loan)));
     });
-    return () => unsubscribe();
+
+    const qCust = query(collection(db, 'customers'), where('uid', '==', user.uid));
+    const unsubscribeCust = onSnapshot(qCust, (snapshot) => {
+      setCustomers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Customer)));
+    });
+
+    return () => {
+      unsubscribe();
+      unsubscribeCust();
+    };
   }, [user.uid]);
+
+  const filteredCustomers = customers.filter(c => 
+    c.name.toLowerCase().includes(customerSearch.toLowerCase())
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     await addDoc(collection(db, 'loans'), {
       uid: user.uid,
-      borrowerName,
+      customerId: customerId || undefined,
+      customerName: borrowerName || customerSearch,
+      borrowerName: borrowerName || customerSearch,
       principal: parseFloat(principal),
       interestRate: parseFloat(interestRate),
       type,
@@ -40,6 +59,8 @@ export default function Loans({ user }: { user: User }) {
   };
 
   const resetForm = () => {
+    setCustomerId('');
+    setCustomerSearch('');
     setBorrowerName('');
     setPrincipal('');
     setInterestRate('');
@@ -80,7 +101,7 @@ export default function Loans({ user }: { user: User }) {
                   <Landmark size={28} />
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold text-white leading-tight">{l.borrowerName}</h3>
+                  <h3 className="text-xl font-bold text-white leading-tight">{l.customerName || l.borrowerName}</h3>
                   <p className="text-xs text-zinc-500 font-bold uppercase tracking-widest mt-1">
                     {l.type === 'interest_only' ? 'Apenas Juros' : 'Juros + Capital'}
                   </p>
@@ -142,17 +163,60 @@ export default function Loans({ user }: { user: User }) {
               </div>
 
               <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-6">
-                <div>
-                  <label className="block text-[10px] font-bold text-zinc-500 mb-2 uppercase tracking-widest">Nome do Devedor</label>
-                  <input
-                    type="text"
-                    value={borrowerName}
-                    onChange={(e) => setBorrowerName(e.target.value)}
-                    className="input-saas"
-                    placeholder="Ex: João Silva"
-                    required
-                  />
+                <div className="relative">
+                  <label className="block text-[10px] font-bold text-zinc-500 mb-2 uppercase tracking-widest">Vincular Cliente (CRM)</label>
+                  <div className="relative">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" size={18} />
+                    <input
+                      type="text"
+                      value={customerSearch}
+                      onChange={(e) => {
+                        setCustomerSearch(e.target.value);
+                        setBorrowerName(e.target.value);
+                        setShowCustomerResults(true);
+                      }}
+                      onFocus={() => setShowCustomerResults(true)}
+                      className="input-saas pl-12 py-3"
+                      placeholder="Buscar cliente ou digitar nome..."
+                    />
+                  </div>
+                  
+                  <AnimatePresence>
+                    {showCustomerResults && customerSearch && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 10 }}
+                        className="absolute z-30 w-full mt-2 bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl max-h-60 overflow-y-auto no-scrollbar"
+                      >
+                        {filteredCustomers.length > 0 ? (
+                          filteredCustomers.map(c => (
+                            <button
+                              key={c.id}
+                              type="button"
+                              onClick={() => {
+                                setCustomerId(c.id!);
+                                setCustomerSearch(c.name);
+                                setBorrowerName(c.name);
+                                setShowCustomerResults(false);
+                              }}
+                              className="w-full p-4 text-left hover:bg-zinc-800 active:bg-zinc-700 flex items-center justify-between border-b border-zinc-800 last:border-0"
+                            >
+                              <div className="flex flex-col">
+                                <span className="font-bold text-white">{c.name}</span>
+                                <span className="text-[10px] text-zinc-400 uppercase tracking-widest">{c.phone}</span>
+                              </div>
+                              <ChevronRight size={16} className="text-zinc-400" />
+                            </button>
+                          ))
+                        ) : (
+                          <div className="p-6 text-center text-zinc-400 text-sm">Nenhum cliente encontrado.</div>
+                        )}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
+
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-[10px] font-bold text-zinc-500 mb-2 uppercase tracking-widest">Valor Principal</label>
