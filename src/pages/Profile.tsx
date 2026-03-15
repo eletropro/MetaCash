@@ -101,36 +101,61 @@ export default function Profile({ user }: { user: User }) {
   const handleSearchOrigin = async () => {
     if (!profile.address) return;
     setSearchingOrigin(true);
-    const res = await searchAddress(profile.address);
-    setProfile(prev => ({ ...prev, address: res.address }));
-    if (res.coords) {
-      setOriginCoords(res.coords);
-      setMapCenter(res.coords);
+    setCalcError(null);
+    try {
+      const res = await searchAddress(profile.address);
+      if (res.address === profile.address && !res.coords) {
+        setCalcError("Não foi possível validar este endereço. Tente ser mais específico (ex: incluir cidade e estado).");
+      } else {
+        setProfile(prev => ({ ...prev, address: res.address }));
+        if (res.coords) {
+          setOriginCoords(res.coords);
+          setMapCenter(res.coords);
+        }
+      }
+    } catch (e) {
+      setCalcError("Erro ao conectar com o serviço de busca.");
+    } finally {
+      setSearchingOrigin(false);
     }
-    setSearchingOrigin(false);
   };
 
   const handleSearchDest = async () => {
     if (!destination) return;
     setSearchingDest(true);
-    const res = await searchAddress(destination);
-    setDestination(res.address);
-    if (res.coords) {
-      setDestCoords(res.coords);
-      setMapCenter(res.coords);
+    setCalcError(null);
+    try {
+      const res = await searchAddress(destination);
+      if (res.address === destination && !res.coords) {
+        setCalcError("Endereço de destino não reconhecido. Tente digitar o nome da rua e cidade.");
+      } else {
+        setDestination(res.address);
+        if (res.coords) {
+          setDestCoords(res.coords);
+          setMapCenter(res.coords);
+        }
+      }
+    } catch (e) {
+      setCalcError("Erro ao buscar endereço de destino.");
+    } finally {
+      setSearchingDest(false);
     }
-    setSearchingDest(false);
   };
 
   const handleMapLocationSelect = async (lat: number, lng: number) => {
     setSearchingDest(true);
+    setDestCoords([lat, lng]); // Set coords immediately for visual feedback
+    setMapCenter([lat, lng]);
     try {
       const addr = await reverseGeocode(lat, lng);
-      setDestination(addr);
-      setDestCoords([lat, lng]);
+      if (addr && addr !== `${lat}, ${lng}`) {
+        setDestination(addr);
+      } else {
+        setDestination(`Localização selecionada (${lat.toFixed(4)}, ${lng.toFixed(4)})`);
+      }
     } catch (e) {
-      setDestination(`${lat}, ${lng}`);
-      setDestCoords([lat, lng]);
+      console.error("Erro no clique do mapa:", e);
+      setDestination(`Localização: ${lat.toFixed(4)}, ${lng.toFixed(4)}`);
     } finally {
       setSearchingDest(false);
     }
