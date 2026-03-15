@@ -1,16 +1,19 @@
 import { GoogleGenAI } from "@google/genai";
 import { Transaction, Budget, Customer } from "../types";
 
-const ai = new GoogleGenAI({ 
-  apiKey: import.meta.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY || "" 
-});
+// Helper to get the API key
+const getApiKey = () => {
+  return import.meta.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY || "";
+};
 
 export async function getFinancialInsights(transactions: Transaction[]) {
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+  const apiKey = getApiKey();
   
   if (!apiKey) {
-    return "IA Desconectada: Configure a chave de API nas configurações.";
+    return "IA Desconectada: Chave de API não encontrada. Verifique as configurações do projeto.";
   }
+
+  const ai = new GoogleGenAI({ apiKey });
 
   const summary = transactions.reduce((acc, t) => {
     if (t.type === 'income') acc.income += t.amount;
@@ -28,22 +31,27 @@ export async function getFinancialInsights(transactions: Transaction[]) {
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-flash-latest",
+      model: "gemini-3-flash-preview",
       contents: prompt,
     });
-    return response.text;
+    return response.text || "A IA não retornou uma resposta válida.";
   } catch (error: any) {
     console.error("Gemini Error:", error);
     if (error?.message?.includes('429') || error?.message?.includes('quota')) {
-      return "Limite de uso da IA atingido para hoje. Tente novamente amanhã ou use uma chave própria.";
+      return "Limite de uso atingido. Tente novamente em alguns minutos.";
     }
-    return "Não foi possível gerar insights no momento.";
+    if (error?.message?.includes('API key not valid')) {
+      return "Chave de API inválida. Verifique sua configuração.";
+    }
+    return `Erro na IA: ${error?.message || "Erro desconhecido"}`;
   }
 }
 
 export async function generateCRMMessage(customer: Customer, action: 'convince' | 'thank') {
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
-  if (!apiKey) return "";
+  const apiKey = getApiKey();
+  if (!apiKey) return "Configure a chave de API para usar esta função.";
+
+  const ai = new GoogleGenAI({ apiKey });
 
   const prompt = `Gere uma mensagem curta, profissional e amigável para WhatsApp para um cliente chamado ${customer.name}.
   Contexto: ${customer.notes || "Cliente de serviços elétricos"}.
@@ -53,10 +61,10 @@ export async function generateCRMMessage(customer: Customer, action: 'convince' 
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-flash-latest",
+      model: "gemini-3-flash-preview",
       contents: prompt,
     });
-    return response.text;
+    return response.text || "";
   } catch (error: any) {
     console.error("Gemini Error:", error);
     return "";
@@ -64,7 +72,14 @@ export async function generateCRMMessage(customer: Customer, action: 'convince' 
 }
 
 export async function analyzeElectricalProjectPDF(base64Data: string) {
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+  const apiKey = getApiKey();
+  if (!apiKey) {
+    console.error("Gemini API Key missing");
+    return null;
+  }
+
+  const ai = new GoogleGenAI({ apiKey });
+
   const prompt = `Analise o seguinte documento PDF de um projeto elétrico e extraia detalhadamente:
   1. Quantidade de Tomadas (novas e existentes a trocar).
   2. Quantidade de Interruptores (simples, paralelos, intermediários).
@@ -91,12 +106,8 @@ export async function analyzeElectricalProjectPDF(base64Data: string) {
   calculationBasis (string - breve explicação de como chegou no valor).`;
 
   try {
-    if (!apiKey) {
-      console.error("VITE_GEMINI_API_KEY missing");
-      return null;
-    }
     const response = await ai.models.generateContent({
-      model: "gemini-flash-latest",
+      model: "gemini-3-flash-preview",
       contents: [
         { text: prompt },
         {
@@ -110,15 +121,11 @@ export async function analyzeElectricalProjectPDF(base64Data: string) {
     });
     
     const text = response.text;
-    console.log("Gemini Raw Response:", text);
-    
     if (!text) return null;
     
     try {
       return JSON.parse(text);
     } catch (parseError) {
-      console.error("JSON Parse Error. Attempting to clean text:", parseError);
-      // Fallback: try to extract JSON if there's markdown around it
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         return JSON.parse(jsonMatch[0]);
