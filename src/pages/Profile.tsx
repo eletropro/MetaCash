@@ -490,8 +490,8 @@ export default function Profile({ user }: { user: User }) {
             <div className="h-[400px] rounded-3xl overflow-hidden border border-white/5 shadow-2xl z-0">
               <MapContainer center={mapCenter} zoom={13} style={{ height: '100%', width: '100%' }}>
                 <TileLayer
-                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                  url="https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
+                  attribution='&copy; Google Maps'
                 />
                 <MapUpdater center={mapCenter} />
                 <MapEvents onLocationSelect={handleMapLocationSelect} />

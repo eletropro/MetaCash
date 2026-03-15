@@ -27,12 +27,14 @@ export async function calculateRoute(
   const originStr = originCoords ? `${originCoords[0]}, ${originCoords[1]}` : origin;
   const destStr = destCoords ? `${destCoords[0]}, ${destCoords[1]}` : destination;
 
-  const prompt = `GPS: Forneça a distância de condução (carro) entre:
-  A: ${originStr}
-  B: ${destStr}
+  // Usando gemini-2.5-flash conforme as diretrizes para Google Maps grounding
+  const prompt = `Aja como um GPS profissional. Calcule a rota de carro entre:
+  ORIGEM: ${originStr}
+  DESTINO: ${destStr}
   
-  Use o Google Maps. Responda APENAS com a distância em km e o tempo.
-  Exemplo: 12.5 km, 20 min`;
+  Use obrigatoriamente a ferramenta Google Maps.
+  Responda APENAS com a distância em km e o tempo estimado.
+  Exemplo: 15.5 km, 20 min`;
 
   try {
     const response = await ai.models.generateContent({
@@ -45,9 +47,9 @@ export async function calculateRoute(
     });
 
     const text = response.text || '';
-    console.log("GPS Raw:", text);
+    console.log("GPS Response:", text);
 
-    // Regex para pegar o primeiro número que parece uma distância
+    // Regex ultra-robusta
     const distanceMatch = text.match(/([\d.,]+)\s*km/i);
     const durationMatch = text.match(/(\d+)\s*(min|hora|hr|h)/i);
     
@@ -56,19 +58,16 @@ export async function calculateRoute(
       distance = parseFloat(distanceMatch[1].replace(/\./g, '').replace(',', '.'));
     }
 
-    // Se falhar o GPS, mas tivermos coordenadas, podemos tentar uma estimativa básica
+    // Fallback matemático se o GPS falhar mas tivermos coordenadas
     if (distance === 0 && originCoords && destCoords) {
-      // Haversine formula for a rough estimate if tool fails
-      const R = 6371; // Earth radius in km
+      const R = 6371;
       const dLat = (destCoords[0] - originCoords[0]) * Math.PI / 180;
       const dLon = (destCoords[1] - originCoords[1]) * Math.PI / 180;
       const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
                 Math.cos(originCoords[0] * Math.PI / 180) * Math.cos(destCoords[0] * Math.PI / 180) * 
                 Math.sin(dLon/2) * Math.sin(dLon/2);
       const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-      const directDist = R * c;
-      distance = parseFloat((directDist * 1.3).toFixed(1)); // 30% more for road distance
-      console.log("Fallback distance used:", distance);
+      distance = parseFloat((R * c * 1.25).toFixed(1)); // 25% de margem para curvas
     }
 
     let mapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(originStr)}&destination=${encodeURIComponent(destStr)}`;
