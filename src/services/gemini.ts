@@ -3,7 +3,7 @@ import { Transaction, Budget, Customer } from "../types";
 
 // Helper to get the API key
 const getApiKey = () => {
-  const key = import.meta.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+  const key = import.meta.env.VITE_GEMINI_API_KEY || (typeof process !== 'undefined' && process.env?.GEMINI_API_KEY);
   if (!key) {
     console.warn("Gemini API Key not found in environment variables.");
   }

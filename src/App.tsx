@@ -159,8 +159,8 @@ function Layout({ children, user }: { children: React.ReactNode; user: User }) {
           <footer className="mt-12 pt-8 border-t border-white/5 text-center">
             <p className="text-[10px] text-zinc-600 uppercase tracking-widest font-bold">
               MetaCash v1.4 • Sistema Premium • 
-              <span className={(import.meta.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY) ? 'text-emerald-500' : 'text-rose-500'}>
-                {(import.meta.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY) ? ' IA Conectada' : ' IA Desconectada'}
+              <span className={(import.meta.env.VITE_GEMINI_API_KEY || (typeof process !== 'undefined' && process.env?.GEMINI_API_KEY)) ? 'text-emerald-500' : 'text-rose-500'}>
+                {(import.meta.env.VITE_GEMINI_API_KEY || (typeof process !== 'undefined' && process.env?.GEMINI_API_KEY)) ? ' IA Conectada' : ' IA Desconectada'}
               </span>
             </p>
           </footer>
@@ -207,15 +207,15 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-zinc-50">
+      <div className="min-h-screen flex items-center justify-center bg-[#0F1115]">
         <div className="flex flex-col items-center gap-4">
-          <div className="w-16 h-16 bg-brand-600 rounded-[2rem] flex items-center justify-center text-white shadow-2xl shadow-brand-100 animate-pulse">
+          <div className="w-16 h-16 bg-brand-500 rounded-[2rem] flex items-center justify-center text-white shadow-2xl shadow-brand-500/20 animate-pulse">
             <Zap size={32} fill="currentColor" />
           </div>
           <div className="flex gap-1">
-            <div className="w-2 h-2 bg-brand-600 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-            <div className="w-2 h-2 bg-brand-600 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-            <div className="w-2 h-2 bg-brand-600 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+            <div className="w-2 h-2 bg-brand-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+            <div className="w-2 h-2 bg-brand-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+            <div className="w-2 h-2 bg-brand-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
           </div>
         </div>
       </div>

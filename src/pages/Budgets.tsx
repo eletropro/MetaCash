@@ -72,7 +72,7 @@ export default function Budgets({ user }: { user: User }) {
     getProfile();
 
     // Check AI Key status
-    const key = import.meta.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+    const key = import.meta.env.VITE_GEMINI_API_KEY || (typeof process !== 'undefined' && process.env?.GEMINI_API_KEY);
     setAiKeyStatus(key ? 'ok' : 'missing');
 
     return () => {

@@ -1,6 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const ai = new GoogleGenAI({ apiKey: (typeof process !== 'undefined' && process.env?.GEMINI_API_KEY) || '' });
 
 export interface RouteResult {
   distanceKm: number;
@@ -28,15 +28,22 @@ export async function calculateRoute(
     contents: prompt,
     config: {
       tools: [{ googleMaps: {} }],
-      responseMimeType: "application/json",
     },
   });
 
-  const result = JSON.parse(response.text || '{}');
+  let result = { distanceKm: 0, durationText: "N/A", mapsUrl: "" };
+  try {
+    const text = response.text || '';
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      result = JSON.parse(jsonMatch[0]);
+    }
+  } catch (e) {
+    console.error("Failed to parse AI response as JSON", e);
+  }
   
   // Calculate fuel cost: (Distance / Consumption) * Price
-  // We multiply by 2 for round trip if needed, but let's stick to one way for now as requested.
-  const distance = result.distanceKm || 0;
+  const distance = Number(result.distanceKm) || 0;
   const cost = (distance / (fuelConsumption || 10)) * (fuelPrice || 5);
 
   return {
