@@ -3,10 +3,11 @@ import { Transaction, Budget, Customer } from "../types";
 
 // Helper to get the API key
 const getApiKey = () => {
-  // Priority: 1. Environment Variable, 2. User Provided Fallback
-  return import.meta.env.VITE_GEMINI_API_KEY || 
-         process.env.GEMINI_API_KEY || 
-         "AIzaSyAz5cJEBrp6sCPcF2KhIIhoCGc0n3OHWQc";
+  const key = import.meta.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+  if (!key) {
+    console.warn("Gemini API Key not found in environment variables.");
+  }
+  return key || "";
 };
 
 export async function getFinancialInsights(transactions: Transaction[]) {
