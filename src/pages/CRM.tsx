@@ -20,7 +20,7 @@ export default function CRM({ user }: { user: User }) {
   const [cpf, setCpf] = useState('');
   const [address, setAddress] = useState('');
   const [notes, setNotes] = useState('');
-  const [loadingAI, setLoadingAI] = useState(false);
+  const [loadingAI, setLoadingAI] = useState<string | null>(null);
 
   useEffect(() => {
     const q = query(collection(db, 'customers'), where('uid', '==', user.uid), orderBy('name', 'asc'));
@@ -65,19 +65,36 @@ export default function CRM({ user }: { user: User }) {
   };
 
   const handleGenerateMessage = async (customer: Customer, action: 'convince' | 'thank') => {
-    setLoadingAI(true);
-    const msg = await generateCRMMessage(customer, action);
-    setLoadingAI(false);
-    
-    let cleanPhone = customer.phone.replace(/\D/g, '');
-    // Ensure country code is present (defaulting to 55 for Brazil if not specified)
-    if (cleanPhone.length <= 11) {
-      cleanPhone = '55' + cleanPhone;
+    if (!customer.phone) {
+      alert('Este cliente não possui um número de telefone cadastrado.');
+      return;
     }
-    
-    if (msg) {
-      const url = `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(msg)}`;
-      window.open(url, '_blank');
+
+    setLoadingAI(`${customer.id}-${action}`);
+    try {
+      const msg = await generateCRMMessage(customer, action);
+      
+      if (msg) {
+        let cleanPhone = customer.phone.replace(/\D/g, '');
+        // Ensure country code is present (defaulting to 55 for Brazil if not specified)
+        if (cleanPhone.length > 0 && cleanPhone.length <= 11) {
+          cleanPhone = '55' + cleanPhone;
+        }
+        
+        const url = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`;
+        const win = window.open(url, '_blank');
+        if (!win) {
+          // If popup is blocked, try direct location change as fallback
+          window.location.href = url;
+        }
+      } else {
+        alert('Não foi possível gerar a mensagem. Verifique sua conexão ou chave de API.');
+      }
+    } catch (error) {
+      console.error("Error generating CRM message:", error);
+      alert('Ocorreu um erro ao gerar a mensagem.');
+    } finally {
+      setLoadingAI(null);
     }
   };
 
@@ -142,15 +159,35 @@ export default function CRM({ user }: { user: User }) {
               <div className="flex gap-2">
                 <button
                   onClick={() => handleGenerateMessage(c, 'convince')}
-                  className="flex-1 bg-brand-50 text-brand-600 text-[10px] font-bold py-2.5 rounded-xl flex items-center justify-center gap-2 hover:bg-brand-100 transition-all"
+                  disabled={loadingAI !== null}
+                  className={`flex-1 text-[10px] font-bold py-2.5 rounded-xl flex items-center justify-center gap-2 transition-all ${
+                    loadingAI === `${c.id}-convince` 
+                      ? 'bg-brand-100 text-brand-400 cursor-wait' 
+                      : 'bg-brand-50 text-brand-600 hover:bg-brand-100'
+                  }`}
                 >
-                  <Sparkles size={14} /> Convencer
+                  {loadingAI === `${c.id}-convince` ? (
+                    <div className="w-3 h-3 border-2 border-brand-600 border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <Sparkles size={14} />
+                  )}
+                  {loadingAI === `${c.id}-convince` ? 'Gerando...' : 'Convencer'}
                 </button>
                 <button
                   onClick={() => handleGenerateMessage(c, 'thank')}
-                  className="flex-1 bg-zinc-50 text-zinc-600 text-[10px] font-bold py-2.5 rounded-xl flex items-center justify-center gap-2 hover:bg-zinc-100 transition-all"
+                  disabled={loadingAI !== null}
+                  className={`flex-1 text-[10px] font-bold py-2.5 rounded-xl flex items-center justify-center gap-2 transition-all ${
+                    loadingAI === `${c.id}-thank` 
+                      ? 'bg-zinc-100 text-zinc-400 cursor-wait' 
+                      : 'bg-zinc-50 text-zinc-600 hover:bg-zinc-100'
+                  }`}
                 >
-                  <MessageSquare size={14} /> Agradecer
+                  {loadingAI === `${c.id}-thank` ? (
+                    <div className="w-3 h-3 border-2 border-zinc-600 border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <MessageSquare size={14} />
+                  )}
+                  {loadingAI === `${c.id}-thank` ? 'Gerando...' : 'Agradecer'}
                 </button>
               </div>
             </div>

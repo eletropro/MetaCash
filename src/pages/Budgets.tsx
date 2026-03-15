@@ -366,14 +366,12 @@ Assinatura do Prestador`
 
         let finalY = (doc as any).lastAutoTable?.finalY || 135;
         
-        // Check if we need a new page for the total and signatures
-        // Signature starts at pageHeight - 60. Total box is ~20px high.
-        // We want at least 40px space between total and signatures.
-        if (finalY > pageHeight - 100) {
+        // Position for Total Box
+        if (finalY > pageHeight - 70) {
           doc.addPage();
-          finalY = 30; // Start near top of new page
+          finalY = 35;
         } else {
-          finalY += 20;
+          finalY += 25;
         }
 
         // Total Highlight Box (Premium Look)
@@ -384,8 +382,13 @@ Assinatura do Prestador`
         doc.setTextColor(255, 255, 255);
         doc.text(`VALOR TOTAL: R$ ${safeTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, pageWidth - margin - 5, finalY + 1, { align: 'right' });
         
-        // Signatures Section
-        const sigY = pageHeight - 60;
+        // Signatures Section - Dynamic position
+        let sigY = finalY + 45;
+        if (sigY > pageHeight - 50) {
+          doc.addPage();
+          sigY = 50;
+        }
+
         doc.setFontSize(10);
         doc.setFont('helvetica', 'normal');
         doc.setTextColor(100, 100, 100);
