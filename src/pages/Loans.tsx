@@ -14,6 +14,7 @@ export default function Loans({ user }: { user: User }) {
   const [manageAmount, setManageAmount] = useState('');
   const [manageDate, setManageDate] = useState(new Date().toISOString().split('T')[0]);
   const [loanTransactions, setLoanTransactions] = useState<any[]>([]);
+  const [editingLoan, setEditingLoan] = useState<Loan | null>(null);
   const [loading, setLoading] = useState(false);
   
   // Calculator state
@@ -123,32 +124,59 @@ export default function Loans({ user }: { user: User }) {
         return;
       }
 
-      await addDoc(collection(db, 'loans'), {
+      const loanData = {
         uid: user.uid,
         customerId: finalCustomerId || null,
         customerName: finalCustomerName,
         borrowerName: finalCustomerName,
         principal: principalVal,
-        paidPrincipal: 0,
         interestRate: interestRateVal,
         type,
         installments: installments ? parseInt(installments) : null,
         paymentDay: parseInt(paymentDay),
-        startDate: new Date(startDate).toISOString(),
+        startDate: startDate, // Store as YYYY-MM-DD string to avoid timezone shifts
         notes: notes || '',
-        status: 'active'
-      });
+        status: editingLoan?.status || 'active'
+      };
+
+      if (editingLoan?.id) {
+        await updateDoc(doc(db, 'loans', editingLoan.id), loanData);
+        alert('Empréstimo atualizado com sucesso!');
+      } else {
+        await addDoc(collection(db, 'loans'), {
+          ...loanData,
+          paidPrincipal: 0,
+        });
+        alert('Empréstimo criado com sucesso!');
+      }
+      
       setShowModal(false);
       resetForm();
     } catch (error) {
-      console.error("Error adding loan:", error);
+      console.error("Error saving loan:", error);
       alert('Erro ao salvar empréstimo. Verifique os dados e tente novamente.');
     } finally {
       setLoading(false);
     }
   };
 
+  const handleEdit = (loan: Loan) => {
+    setEditingLoan(loan);
+    setCustomerId(loan.customerId || '');
+    setCustomerSearch(loan.customerName);
+    setBorrowerName(loan.borrowerName || loan.customerName);
+    setPrincipal(loan.principal.toString());
+    setInterestRate(loan.interestRate.toString());
+    setType(loan.type);
+    setInstallments(loan.installments?.toString() || '');
+    setPaymentDay(loan.paymentDay?.toString() || '10');
+    setStartDate(loan.startDate.split('T')[0]);
+    setNotes(loan.notes || '');
+    setShowModal(true);
+  };
+
   const resetForm = () => {
+    setEditingLoan(null);
     setCustomerId('');
     setCustomerSearch('');
     setCustomerPhone('');
@@ -170,7 +198,7 @@ export default function Loans({ user }: { user: User }) {
         amount: interestAmount,
         description: `Juros Recebidos: ${loan.customerName}`,
         category: 'Empréstimo',
-        date: new Date(manageDate).toISOString(),
+        date: manageDate, // Use YYYY-MM-DD directly
         loanId: loan.id
       });
       alert(`Recebimento de R$ ${interestAmount.toLocaleString('pt-BR')} (Juros) registrado!`);
@@ -205,7 +233,7 @@ export default function Loans({ user }: { user: User }) {
         amount: amount,
         description: `Amortização de Capital: ${loan.customerName}`,
         category: 'Empréstimo',
-        date: new Date(manageDate).toISOString(),
+        date: manageDate, // Use YYYY-MM-DD directly
         loanId: loan.id
       });
 
@@ -249,6 +277,12 @@ export default function Loans({ user }: { user: User }) {
     }
   };
 
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return '-';
+    const [year, month, day] = dateStr.split('T')[0].split('-').map(Number);
+    return `${day.toString().padStart(2, '0')}/${month.toString().padStart(2, '0')}/${year}`;
+  };
+
   const calculateMonthly = (p: number, r: number, t: 'interest_only' | 'principal_interest', inst?: number | null) => {
     const monthlyRate = r / 100;
     if (t === 'interest_only') {
@@ -281,7 +315,7 @@ export default function Loans({ user }: { user: User }) {
         amount: monthlyAmount,
         description: `Parcela Recebida: ${loan.customerName} (Juros + Capital)`,
         category: 'Empréstimo',
-        date: new Date(manageDate).toISOString(),
+        date: manageDate, // Use YYYY-MM-DD directly
         loanId: loan.id
       });
 
@@ -331,6 +365,9 @@ export default function Loans({ user }: { user: User }) {
                 </div>
               </div>
               <div className="flex items-center gap-2">
+                <button onClick={() => handleEdit(l)} className="p-2 text-zinc-600 hover:text-brand-500 transition-colors">
+                  <Edit2 size={18} />
+                </button>
                 <button onClick={() => l.id && deleteDoc(doc(db, 'loans', l.id))} className="p-2 text-zinc-600 hover:text-rose-500 transition-colors">
                   <Trash2 size={18} />
                 </button>
@@ -348,7 +385,7 @@ export default function Loans({ user }: { user: User }) {
               </div>
               <div className="bg-zinc-800/50 p-4 rounded-2xl border border-zinc-700">
                 <p className="text-[10px] text-zinc-500 uppercase font-bold tracking-widest mb-1">Contratação</p>
-                <p className="text-sm font-bold text-white">{new Date(l.startDate).toLocaleDateString('pt-BR')}</p>
+                <p className="text-sm font-bold text-white">{formatDate(l.startDate)}</p>
               </div>
               <div className="bg-zinc-800/50 p-4 rounded-2xl border border-zinc-700">
                 <p className="text-[10px] text-zinc-500 uppercase font-bold tracking-widest mb-1">Dia Pagamento</p>
@@ -448,7 +485,7 @@ export default function Loans({ user }: { user: User }) {
                     <div className="space-y-2">
                       <div className="flex justify-between text-sm">
                         <span className="text-zinc-400">Data Início:</span>
-                        <span className="text-white font-bold">{new Date(showManageModal.startDate).toLocaleDateString('pt-BR')}</span>
+                        <span className="text-white font-bold">{formatDate(showManageModal.startDate)}</span>
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-zinc-400">Dia de Vencimento:</span>
@@ -543,7 +580,7 @@ export default function Loans({ user }: { user: User }) {
                           <div key={t.id} className="bg-zinc-800/50 p-4 rounded-2xl border border-zinc-700 flex justify-between items-center">
                             <div>
                               <p className="text-sm font-bold text-white">{t.description}</p>
-                              <p className="text-[10px] text-zinc-500">{new Date(t.date).toLocaleDateString('pt-BR')}</p>
+                              <p className="text-[10px] text-zinc-500">{formatDate(t.date)}</p>
                             </div>
                             <p className="text-emerald-500 font-bold">R$ {t.amount.toLocaleString('pt-BR')}</p>
                           </div>
@@ -569,7 +606,7 @@ export default function Loans({ user }: { user: User }) {
               className="bg-zinc-900 w-full max-w-md rounded-t-[2.5rem] sm:rounded-[2.5rem] shadow-2xl overflow-hidden max-h-[95vh] overflow-y-auto no-scrollbar border border-zinc-800"
             >
               <div className="p-6 sm:p-8 border-b border-zinc-800 flex justify-between items-center bg-zinc-900 sticky top-0 z-10">
-                <h3 className="text-xl sm:text-2xl font-bold text-white">Novo Empréstimo</h3>
+                <h3 className="text-xl sm:text-2xl font-bold text-white">{editingLoan ? 'Editar Empréstimo' : 'Novo Empréstimo'}</h3>
                 <button onClick={() => setShowModal(false)} className="p-2 text-zinc-500 hover:text-zinc-300 active:scale-90 transition-all">
                   <X size={28} />
                 </button>
@@ -731,7 +768,7 @@ export default function Loans({ user }: { user: User }) {
                 </div>
 
                 <button type="submit" disabled={loading} className="w-full btn-primary py-4 text-lg mt-4 disabled:opacity-50">
-                  {loading ? 'Salvando...' : 'Salvar Empréstimo'}
+                  {loading ? 'Salvando...' : (editingLoan ? 'Atualizar Empréstimo' : 'Salvar Empréstimo')}
                 </button>
               </form>
             </motion.div>

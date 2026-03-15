@@ -72,6 +72,12 @@ export default function Home({ user }: { user: User }) {
     return acc;
   }, { income: 0, expense: 0 });
 
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return '-';
+    const [year, month, day] = dateStr.split('T')[0].split('-').map(Number);
+    return `${day.toString().padStart(2, '0')}/${month.toString().padStart(2, '0')}/${year}`;
+  };
+
   const balance = totals.income - totals.expense;
   const monthlyGoal = profile?.monthlyGoal || 10000;
   const goalProgress = Math.min((totals.income / monthlyGoal) * 100, 100);
@@ -230,7 +236,7 @@ export default function Home({ user }: { user: User }) {
                     </div>
                     <div>
                       <p className="font-bold text-white">{t.description}</p>
-                      <p className="text-xs text-zinc-500 font-medium uppercase tracking-wider">{new Date(t.date).toLocaleDateString('pt-BR')} • {t.category}</p>
+                      <p className="text-xs text-zinc-500 font-medium uppercase tracking-wider">{formatDate(t.date)} • {t.category}</p>
                     </div>
                   </div>
                   <p className={`text-lg font-bold ${t.type === 'income' ? 'text-emerald-400' : 'text-rose-400'}`}>

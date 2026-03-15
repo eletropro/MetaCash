@@ -79,6 +79,12 @@ export default function Finance({ user }: { user: User }) {
     return acc;
   }, { income: 0, expense: 0 });
 
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return '-';
+    const [year, month, day] = dateStr.split('T')[0].split('-').map(Number);
+    return `${day.toString().padStart(2, '0')}/${month.toString().padStart(2, '0')}/${year}`;
+  };
+
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-10 sm:pb-0">
       <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -153,7 +159,7 @@ export default function Finance({ user }: { user: User }) {
                 </div>
                 <div>
                   <p className="font-bold text-white">{t.description}</p>
-                  <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">{t.category} • {new Date(t.date).toLocaleDateString('pt-BR')}</p>
+                  <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">{t.category} • {formatDate(t.date)}</p>
                 </div>
               </div>
               <div className="flex items-center gap-6">
