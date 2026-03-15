@@ -132,14 +132,14 @@ export default function CRM({ user }: { user: User }) {
         </div>
         <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
           <div className="relative flex-1 sm:w-64">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" size={18} />
             <input 
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Buscar nome ou telefone..."
-              className="input-saas pl-12 py-2.5 text-sm"
+              className="input-saas pr-12 py-2.5 text-sm"
             />
+            <Search className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500" size={18} />
           </div>
           <button onClick={() => setShowModal(true)} className="btn-primary py-3 sm:py-2.5">
             <Plus size={20} /> Novo Cliente

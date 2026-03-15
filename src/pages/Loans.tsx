@@ -462,7 +462,6 @@ export default function Loans({ user }: { user: User }) {
                 <div className="relative">
                   <label className="block text-[10px] font-bold text-zinc-500 mb-2 uppercase tracking-widest">Vincular Cliente (CRM)</label>
                   <div className="relative">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" size={18} />
                     <input
                       type="text"
                       value={customerSearch}
@@ -472,9 +471,10 @@ export default function Loans({ user }: { user: User }) {
                         setShowCustomerResults(true);
                       }}
                       onFocus={() => setShowCustomerResults(true)}
-                      className="input-saas pl-12 py-3"
+                      className="input-saas pr-12 py-3"
                       placeholder="Buscar cliente ou digitar nome..."
                     />
+                    <Search className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400" size={18} />
                   </div>
                   
                   <AnimatePresence>
