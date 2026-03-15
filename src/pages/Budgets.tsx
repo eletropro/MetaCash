@@ -39,6 +39,7 @@ export default function Budgets({ user }: { user: User }) {
   const [showCustomerResults, setShowCustomerResults] = useState(false);
   const [title, setTitle] = useState('');
   const [items, setItems] = useState<{ description: string; quantity: number; price: number }[]>([]);
+  const [materials, setMaterials] = useState<{ description: string; quantity: number; price: number }[]>([]);
   const [analysis, setAnalysis] = useState<Budget['projectAnalysis'] | null>(null);
   const [contractDetails, setContractDetails] = useState<Budget['contractDetails']>({
     deadline: '15 dias úteis',
@@ -143,13 +144,17 @@ export default function Budgets({ user }: { user: User }) {
     const customer = customers.find(c => c.id === customerId);
     if (!customer) return;
 
-    const total = items.reduce((acc, item) => acc + (item.quantity * item.price), 0);
+    const totalItems = items.reduce((acc, item) => acc + (item.quantity * item.price), 0);
+    const totalMaterials = materials.reduce((acc, item) => acc + (item.quantity * item.price), 0);
+    const total = totalItems + totalMaterials;
+
     const budgetData = {
       uid: user.uid,
       customerId,
       customerName: customer.name,
       title,
       items,
+      materials,
       totalAmount: total,
       status: editingBudget ? editingBudget.status : 'pending',
       date: editingBudget ? editingBudget.date : new Date().toISOString(),
@@ -203,6 +208,7 @@ Assinatura do Prestador`
     setCustomerSearch(budget.customerName);
     setTitle(budget.title);
     setItems(budget.items);
+    setMaterials(budget.materials || []);
     setAnalysis(budget.projectAnalysis || null);
     setContractDetails(budget.contractDetails || {
       deadline: '15 dias úteis',
@@ -219,6 +225,7 @@ Assinatura do Prestador`
     setCustomerSearch('');
     setTitle('');
     setItems([]);
+    setMaterials([]);
     setAnalysis(null);
     setContractDetails({
       deadline: '15 dias úteis',
@@ -365,6 +372,56 @@ Assinatura do Prestador`
         });
 
         let finalY = (doc as any).lastAutoTable?.finalY || 135;
+
+        // Add Materials Table if present
+        const materialsArray = Array.isArray(budget.materials) ? budget.materials : [];
+        if (materialsArray.length > 0) {
+          const matTableData = materialsArray.map(mat => {
+            const q = typeof mat.quantity === 'number' ? mat.quantity : 0;
+            const p = typeof mat.price === 'number' ? mat.price : 0;
+            return [
+              mat.description || 'Material sem descrição',
+              q.toString(),
+              `R$ ${p.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+              `R$ ${(q * p).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+            ];
+          });
+
+          doc.setFontSize(10);
+          doc.setFont('helvetica', 'bold');
+          doc.setTextColor(88, 101, 242);
+          doc.text('MATERIAIS', margin, finalY + 15);
+
+          autoTable(doc, {
+            startY: finalY + 20,
+            head: [['Descrição do Material', 'Qtd', 'Vlr. Unitário', 'Subtotal']],
+            body: matTableData,
+            theme: 'striped',
+            headStyles: { 
+              fillColor: [71, 85, 105], 
+              fontSize: 10, 
+              fontStyle: 'bold',
+              halign: 'center',
+              cellPadding: 5
+            },
+            columnStyles: {
+              0: { cellWidth: 'auto' },
+              1: { halign: 'center', cellWidth: 20 },
+              2: { halign: 'right', cellWidth: 40 },
+              3: { halign: 'right', cellWidth: 40 }
+            },
+            styles: { 
+              fontSize: 9, 
+              cellPadding: 5,
+              textColor: [51, 65, 85],
+              lineColor: [241, 245, 249]
+            },
+            alternateRowStyles: {
+              fillColor: [248, 250, 252]
+            }
+          });
+          finalY = (doc as any).lastAutoTable?.finalY || finalY + 20;
+        }
         
         // Ensure we are on the last page the table occupied
         const totalPages = (doc as any).internal.getNumberOfPages();
@@ -732,13 +789,13 @@ Damos por este recibo a plena e geral quitação dos valores acima mencionados, 
                 {/* Items Table */}
                 <div className="space-y-4">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                    <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Itens do Orçamento</label>
+                    <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Mão de Obra / Serviços</label>
                     <button
                       type="button"
                       onClick={() => setItems([...items, { description: '', quantity: 1, price: 0 }])}
                       className="text-emerald-500 text-xs font-bold hover:underline text-left"
                     >
-                      + Adicionar Item Manualmente
+                      + Adicionar Serviço
                     </button>
                   </div>
                   <div className="space-y-3">
@@ -805,6 +862,82 @@ Damos por este recibo a plena e geral quitação dos valores acima mencionados, 
                   </div>
                 </div>
 
+                {/* Materials Table */}
+                <div className="space-y-4 pt-6 border-t border-zinc-800">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Materiais (Opcional)</label>
+                    <button
+                      type="button"
+                      onClick={() => setMaterials([...materials, { description: '', quantity: 1, price: 0 }])}
+                      className="text-emerald-500 text-xs font-bold hover:underline text-left"
+                    >
+                      + Adicionar Material
+                    </button>
+                  </div>
+                  <div className="space-y-3">
+                    {materials.map((item, idx) => (
+                      <motion.div
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        key={idx}
+                        className="flex flex-col sm:flex-row gap-3 p-4 sm:p-0 bg-zinc-800 sm:bg-transparent rounded-2xl border border-zinc-700 sm:border-0 relative"
+                      >
+                        <div className="flex-1">
+                          <label className="sm:hidden block text-[9px] font-bold text-zinc-400 uppercase mb-1">Descrição do Material</label>
+                          <input
+                            type="text"
+                            value={item.description}
+                            onChange={(e) => {
+                              const newMats = [...materials];
+                              newMats[idx].description = e.target.value;
+                              setMaterials(newMats);
+                            }}
+                            className="w-full input-saas py-2.5 text-sm"
+                            placeholder="Ex: Cabo Flexível 2.5mm"
+                          />
+                        </div>
+                        <div className="flex items-center gap-2 sm:w-48">
+                          <div className="w-16">
+                            <label className="sm:hidden block text-[9px] font-bold text-zinc-400 uppercase mb-1">Qtd</label>
+                            <input
+                              type="number"
+                              value={item.quantity}
+                              onChange={(e) => {
+                                const newMats = [...materials];
+                                newMats[idx].quantity = parseInt(e.target.value) || 0;
+                                setMaterials(newMats);
+                              }}
+                              className="w-full input-saas py-2.5 text-sm text-center"
+                              placeholder="Qtd"
+                            />
+                          </div>
+                          <div className="flex-1">
+                            <label className="sm:hidden block text-[9px] font-bold text-zinc-400 uppercase mb-1">Valor Unitário</label>
+                            <input
+                              type="number"
+                              value={item.price}
+                              onChange={(e) => {
+                                const newMats = [...materials];
+                                newMats[idx].price = parseFloat(e.target.value) || 0;
+                                setMaterials(newMats);
+                              }}
+                              className="w-full input-saas py-2.5 text-sm"
+                              placeholder="Valor"
+                            />
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setMaterials(materials.filter((_, i) => i !== idx))}
+                          className="absolute top-3 right-3 sm:relative sm:top-0 sm:right-0 p-2 text-zinc-300 hover:text-red-500 active:scale-90 transition-all"
+                        >
+                          <X size={18} />
+                        </button>
+                      </motion.div>
+                    ))}
+                  </div>
+                </div>
+
                 {/* Contract Details Section */}
                 <div className="space-y-4 pt-6 border-t border-zinc-100">
                   <h4 className="text-sm font-bold text-zinc-900 flex items-center gap-2">
@@ -858,7 +991,7 @@ Damos por este recibo a plena e geral quitação dos valores acima mencionados, 
                   <div className="text-center sm:text-left">
                     <p className="text-[10px] text-zinc-400 uppercase font-bold tracking-widest">Total Estimado</p>
                     <p className="text-3xl font-bold text-zinc-900">
-                      R$ {items.reduce((acc, i) => acc + (i.quantity * i.price), 0).toLocaleString('pt-BR')}
+                      R$ {(items.reduce((acc, i) => acc + (i.quantity * i.price), 0) + materials.reduce((acc, i) => acc + (i.quantity * i.price), 0)).toLocaleString('pt-BR')}
                     </p>
                   </div>
                   <button type="submit" className="btn-primary w-full sm:w-auto py-4 px-12 text-lg shadow-xl shadow-brand-500/30">

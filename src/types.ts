@@ -30,6 +30,7 @@ export interface Budget {
   customerName: string;
   title: string;
   items: { description: string; quantity: number; price: number }[];
+  materials?: { description: string; quantity: number; price: number }[];
   totalAmount: number;
   status: 'pending' | 'approved' | 'rejected';
   date: string;
