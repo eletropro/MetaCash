@@ -1,6 +1,6 @@
 {
-  "name": "MetaCash",
-  "description": "Sistema completo de gestão para eletricistas e pequenos negócios, com controle financeiro, orçamentos com PDF, CRM com IA e calculadora de empréstimos.",
+  "name": "Crossbol Manager",
+  "description": "Sistema profissional de gestão de quadras esportivas com reservas online, pagamentos automáticos e painel administrativo avançado.",
   "requestFramePermissions": [
     "camera",
     "geolocation"

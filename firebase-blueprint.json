@@ -2,103 +2,67 @@
   "entities": {
     "UserProfile": {
       "title": "User Profile",
-      "description": "Dados da empresa e configurações do usuário",
+      "description": "User account information and role",
       "type": "object",
       "properties": {
         "uid": { "type": "string" },
-        "companyName": { "type": "string" },
-        "ownerName": { "type": "string" },
-        "email": { "type": "string" },
-        "phone": { "type": "string" },
-        "address": { "type": "string" },
-        "logoUrl": { "type": "string" },
-        "contractClauses": { "type": "string" }
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "client"] },
+        "tenantId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["uid", "companyName"]
+      "required": ["uid", "email", "role", "createdAt"]
     },
-    "Transaction": {
-      "title": "Transaction",
-      "description": "Entradas e saídas financeiras",
+    "Tenant": {
+      "title": "Tenant (Sports Center)",
+      "description": "Information about a sports center",
       "type": "object",
       "properties": {
-        "uid": { "type": "string" },
-        "type": { "type": "string", "enum": ["income", "expense"] },
-        "amount": { "type": "number" },
-        "description": { "type": "string" },
-        "category": { "type": "string" },
-        "date": { "type": "string", "format": "date-time" },
-        "budgetId": { "type": "string" }
-      },
-      "required": ["uid", "type", "amount", "date"]
-    },
-    "Budget": {
-      "title": "Budget",
-      "description": "Orçamentos e projetos",
-      "type": "object",
-      "properties": {
-        "uid": { "type": "string" },
-        "customerId": { "type": "string" },
-        "customerName": { "type": "string" },
-        "title": { "type": "string" },
-        "items": { "type": "array" },
-        "totalAmount": { "type": "number" },
-        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
-        "date": { "type": "string", "format": "date-time" },
-        "projectAnalysis": { "type": "object" },
-        "contractText": { "type": "string" }
-      },
-      "required": ["uid", "customerId", "totalAmount", "status"]
-    },
-    "Customer": {
-      "title": "Customer",
-      "description": "Clientes do CRM",
-      "type": "object",
-      "properties": {
-        "uid": { "type": "string" },
+        "id": { "type": "string" },
         "name": { "type": "string" },
-        "email": { "type": "string" },
-        "phone": { "type": "string" },
-        "notes": { "type": "string" },
-        "lastInteraction": { "type": "string", "format": "date-time" }
+        "address": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "settings": { "type": "object" },
+        "createdAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["uid", "name"]
+      "required": ["id", "name", "ownerId", "createdAt"]
     },
-    "Loan": {
-      "title": "Loan",
-      "description": "Empréstimos a juros",
+    "Court": {
+      "title": "Court",
+      "description": "A sports court within a tenant",
       "type": "object",
       "properties": {
-        "uid": { "type": "string" },
-        "borrowerName": { "type": "string" },
-        "principal": { "type": "number" },
-        "interestRate": { "type": "number" },
-        "type": { "type": "string", "enum": ["interest_only", "principal_interest"] },
-        "startDate": { "type": "string", "format": "date-time" },
-        "status": { "type": "string", "enum": ["active", "paid"] }
+        "id": { "type": "string" },
+        "tenantId": { "type": "string" },
+        "name": { "type": "string" },
+        "basePrice": { "type": "number" },
+        "active": { "type": "boolean" }
       },
-      "required": ["uid", "borrowerName", "principal", "interestRate"]
+      "required": ["id", "tenantId", "name", "basePrice"]
+    },
+    "Booking": {
+      "title": "Booking",
+      "description": "A court reservation",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "tenantId": { "type": "string" },
+        "courtId": { "type": "string" },
+        "userId": { "type": "string" },
+        "startTime": { "type": "string", "format": "date-time" },
+        "endTime": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["pending", "confirmed", "cancelled", "paid"] },
+        "totalPrice": { "type": "number" }
+      },
+      "required": ["id", "tenantId", "courtId", "userId", "startTime", "endTime", "status", "totalPrice"]
     }
   },
   "firestore": {
-    "/users/{userId}": {
-      "schema": "UserProfile",
-      "description": "Perfis de usuário"
-    },
-    "/transactions": {
-      "schema": "Transaction",
-      "description": "Transações financeiras"
-    },
-    "/budgets": {
-      "schema": "Budget",
-      "description": "Orçamentos"
-    },
-    "/customers": {
-      "schema": "Customer",
-      "description": "Clientes"
-    },
-    "/loans": {
-      "schema": "Loan",
-      "description": "Empréstimos"
-    }
+    "/users/{uid}": { "schema": "UserProfile", "description": "User profiles" },
+    "/tenants/{tenantId}": { "schema": "Tenant", "description": "Sports centers" },
+    "/tenants/{tenantId}/courts/{courtId}": { "schema": "Court", "description": "Courts per tenant" },
+    "/tenants/{tenantId}/bookings/{bookingId}": { "schema": "Booking", "description": "Bookings per tenant" },
+    "/tenants/{tenantId}/coupons/{couponId}": { "schema": "Coupon", "description": "Coupons per tenant" }
   }
 }

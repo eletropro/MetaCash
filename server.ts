@@ -1,0 +1,189 @@
+import express from "express";
+import path from "path";
+import { createServer as createViteServer } from "vite";
+import dotenv from "dotenv";
+import { MercadoPagoConfig, Payment } from 'mercadopago';
+import admin from 'firebase-admin';
+import { getFirestore } from 'firebase-admin/firestore';
+
+dotenv.config();
+
+// Initialize Firebase Admin
+if (!admin.apps.length) {
+  admin.initializeApp({
+    projectId: "core-gearbox-416216",
+  });
+}
+const firestoreDb = getFirestore("ai-studio-5b1194ed-38ca-4467-be2d-e039fc98df7e");
+
+// Initialize Mercado Pago
+const mpClient = new MercadoPagoConfig({ 
+  accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN || '' 
+});
+const mpPayment = new Payment(mpClient);
+
+async function startServer() {
+  const app = express();
+  const PORT = 3000;
+
+  app.use(express.json());
+
+  // API Routes
+  app.get("/api/health", (req, res) => {
+    res.json({ status: "ok", service: "Crossbol Manager API" });
+  });
+
+  // Mercado Pago: Check Payment Status
+  app.get("/api/payments/mercadopago/:id/status", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const result = await mpPayment.get({ id });
+      
+      console.log(`Checking status for payment ${id}: ${result.status}`);
+
+      // If approved, update Firestore
+      if (result.status === 'approved') {
+        const bookingsRef = firestoreDb.collection('tenants').doc('main-ct').collection('bookings');
+        const q = await bookingsRef.where('mercadopagoPaymentId', '==', id).get();
+        
+        if (!q.empty) {
+          const bookingDoc = q.docs[0];
+          if (bookingDoc.data().status !== 'confirmed') {
+            await bookingDoc.ref.update({ status: 'confirmed' });
+            console.log(`Booking ${bookingDoc.id} confirmed via status check!`);
+          }
+        }
+      }
+
+      res.json({ 
+        id: result.id, 
+        status: result.status,
+        status_detail: result.status_detail 
+      });
+    } catch (error: any) {
+      console.error("Status Check Error:", error.message);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Mercado Pago: Create PIX Payment
+  app.post("/api/payments/mercadopago/pix", async (req, res) => {
+    try {
+      const { amount, description, email, firstName, lastName, bookingId } = req.body;
+      console.log(`Creating PIX payment for ${amount} BRL (Booking: ${bookingId})...`);
+
+      if (!process.env.MERCADOPAGO_ACCESS_TOKEN) {
+        console.error("MERCADOPAGO_ACCESS_TOKEN is missing!");
+        return res.status(500).json({ error: "Mercado Pago Access Token not configured" });
+      }
+
+      // Use the App URL for webhooks if available
+      const notificationUrl = process.env.APP_URL 
+        ? `${process.env.APP_URL}/api/webhooks/mercadopago`
+        : undefined;
+
+      const paymentData = {
+        body: {
+          transaction_amount: Number(amount),
+          description: description,
+          payment_method_id: 'pix',
+          notification_url: notificationUrl,
+          external_reference: bookingId, // Link to our booking ID
+          payer: {
+            email: email,
+            first_name: firstName,
+            last_name: lastName,
+          },
+        },
+      };
+
+      const result = await mpPayment.create(paymentData);
+      console.log("Mercado Pago Payment Created:", result.id);
+      
+      res.json({
+        id: result.id,
+        status: result.status,
+        pix_copy_paste: result.point_of_interaction?.transaction_data?.qr_code,
+        pix_qr_code_base64: result.point_of_interaction?.transaction_data?.qr_code_base64,
+      });
+    } catch (error: any) {
+      console.error("Mercado Pago Error Details:", error.message);
+      if (error.cause) console.error("Error Cause:", JSON.stringify(error.cause));
+      res.status(500).json({ 
+        error: "Failed to create Mercado Pago payment",
+        details: error.message 
+      });
+    }
+  });
+
+  // Stripe Webhook (Mock)
+  app.post("/api/webhooks/stripe", (req, res) => {
+    const event = req.body;
+    console.log("Stripe Event Received:", event.type);
+    res.json({ received: true });
+  });
+
+  // Mercado Pago Webhook
+  app.post("/api/webhooks/mercadopago", async (req, res) => {
+    try {
+      const { topic, resource, id } = req.body;
+      console.log("Mercado Pago Webhook Received:", { topic, resource, id });
+
+      // Mercado Pago sends notifications in different formats
+      const paymentId = id || (resource && resource.split('/').pop());
+      
+      if (paymentId && (topic === 'payment' || resource?.includes('payment'))) {
+        const result = await mpPayment.get({ id: paymentId });
+        
+        if (result.status === 'approved') {
+          const bookingsRef = firestoreDb.collection('tenants').doc('main-ct').collection('bookings');
+          
+          // Try to find by external_reference first (most reliable)
+          if (result.external_reference) {
+            const bookingDoc = await bookingsRef.doc(result.external_reference).get();
+            if (bookingDoc.exists) {
+              await bookingDoc.ref.update({ status: 'confirmed' });
+              console.log(`Booking ${bookingDoc.id} confirmed via webhook (external_reference)!`);
+              return res.status(200).send("OK");
+            }
+          }
+
+          // Fallback to searching by payment ID
+          const q = await bookingsRef.where('mercadopagoPaymentId', '==', paymentId).get();
+          
+          if (!q.empty) {
+            const bookingDoc = q.docs[0];
+            await bookingDoc.ref.update({ status: 'confirmed' });
+            console.log(`Booking ${bookingDoc.id} confirmed via webhook (paymentId)!`);
+          }
+        }
+      }
+      
+      res.status(200).send("OK");
+    } catch (error: any) {
+      console.error("Webhook Error:", error.message);
+      res.status(500).send("Error");
+    }
+  });
+
+  // Vite middleware for development
+  if (process.env.NODE_ENV !== "production") {
+    const vite = await createViteServer({
+      server: { middlewareMode: true },
+      appType: "spa",
+    });
+    app.use(vite.middlewares);
+  } else {
+    const distPath = path.join(process.cwd(), 'dist');
+    app.use(express.static(distPath));
+    app.get('*', (req, res) => {
+      res.sendFile(path.join(distPath, 'index.html'));
+    });
+  }
+
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`🚀 Server running on http://localhost:${PORT}`);
+  });
+}
+
+startServer();

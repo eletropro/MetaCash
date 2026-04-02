@@ -1,63 +1,75 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Helper functions
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
     function isAuthenticated() {
       return request.auth != null;
     }
-    
+
     function isOwner(userId) {
       return isAuthenticated() && request.auth.uid == userId;
     }
-    
-    function isDocOwner() {
-      return isAuthenticated() && request.auth.uid == resource.data.uid;
-    }
-
-    function requestMatchesUid() {
-      return isAuthenticated() && request.auth.uid == request.resource.data.uid;
-    }
 
     function isAdmin() {
-      return isAuthenticated() && request.auth.token.email.lower() == "duhgostozo@gmail.com";
+      return isAuthenticated() && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+        (request.auth.token.email == "duhgostozo@gmail.com" && request.auth.token.email_verified == true)
+      );
     }
 
-    // User Profiles
-    match /users/{userId} {
-      allow read: if isOwner(userId) || isAdmin();
-      allow write: if isOwner(userId) || isAdmin();
+    function isTenantOwner(tenantId) {
+      return isAuthenticated() && get(/databases/$(database)/documents/tenants/$(tenantId)).data.ownerId == request.auth.uid;
     }
 
-    // Transactions
-    match /transactions/{docId} {
-      allow read: if isDocOwner();
-      allow create: if requestMatchesUid();
-      allow update: if isDocOwner() && requestMatchesUid();
-      allow delete: if isDocOwner();
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email', 'role', 'createdAt']) &&
+             data.uid is string &&
+             data.email is string &&
+             data.role in ['admin', 'client'] &&
+             data.createdAt is string;
     }
 
-    // Budgets
-    match /budgets/{docId} {
-      allow read: if isDocOwner();
-      allow create: if requestMatchesUid();
-      allow update: if isDocOwner() && requestMatchesUid();
-      allow delete: if isDocOwner();
+    function isValidBooking(data) {
+      return data.keys().hasAll(['tenantId', 'courtId', 'userId', 'startTime', 'endTime', 'status', 'totalPrice']) &&
+             data.tenantId is string &&
+             data.courtId is string &&
+             data.userId is string &&
+             data.status in ['pending', 'confirmed', 'cancelled', 'paid'] &&
+             data.totalPrice is number;
     }
 
-    // Customers
-    match /customers/{docId} {
-      allow read: if isDocOwner();
-      allow create: if requestMatchesUid();
-      allow update: if isDocOwner() && requestMatchesUid();
-      allow delete: if isDocOwner();
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow create: if isAuthenticated() && isOwner(uid) && isValidUser(request.resource.data);
+      allow update: if isAuthenticated() && isOwner(uid) && isValidUser(request.resource.data) && request.resource.data.role == resource.data.role;
     }
 
-    // Loans
-    match /loans/{docId} {
-      allow read: if isDocOwner();
-      allow create: if requestMatchesUid();
-      allow update: if isDocOwner() && requestMatchesUid();
-      allow delete: if isDocOwner();
+    match /tenants/{tenantId} {
+      allow read: if true; // Publicly readable for discovery
+      allow create: if isAdmin();
+      allow update: if isAdmin() || isTenantOwner(tenantId);
+      
+      match /courts/{courtId} {
+        allow read: if true;
+        allow write: if isAdmin() || isTenantOwner(tenantId);
+      }
+      
+      match /bookings/{bookingId} {
+        allow read: if isAuthenticated() && (isOwner(resource.data.userId) || isTenantOwner(tenantId) || isAdmin());
+        allow create: if isAuthenticated() && isValidBooking(request.resource.data) && (request.resource.data.userId == request.auth.uid || isAdmin());
+        allow update: if isAuthenticated() && (isOwner(resource.data.userId) || isTenantOwner(tenantId) || isAdmin());
+      }
+      
+      match /coupons/{couponId} {
+        allow read: if isAuthenticated();
+        allow write: if isAdmin() || isTenantOwner(tenantId);
+      }
     }
   }
 }
