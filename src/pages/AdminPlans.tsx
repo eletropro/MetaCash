@@ -29,6 +29,7 @@ interface Plan {
   color: string;
   popular?: boolean;
   hours?: number; // For packages
+  active: boolean;
 }
 
 export const AdminPlans = () => {
@@ -42,7 +43,8 @@ export const AdminPlans = () => {
     type: 'package',
     features: [],
     color: 'neon',
-    popular: false
+    popular: false,
+    active: true
   });
   const [newFeature, setNewFeature] = useState('');
 
@@ -135,7 +137,8 @@ export const AdminPlans = () => {
               type: 'package',
               features: [],
               color: 'neon',
-              popular: false
+              popular: false,
+              active: true
             });
             setIsEditing(true);
           }}
@@ -202,6 +205,18 @@ export const AdminPlans = () => {
                       className="w-5 h-5 accent-neon"
                     />
                     <span className="text-sm text-gray-300">Marcar como "Mais Popular"</span>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm text-gray-400">Status</label>
+                  <div className="flex items-center gap-2 h-[50px]">
+                    <input 
+                      type="checkbox" 
+                      checked={currentPlan.active}
+                      onChange={e => setCurrentPlan({...currentPlan, active: e.target.checked})}
+                      className="w-5 h-5 accent-neon"
+                    />
+                    <span className="text-sm text-gray-300">Plano Ativo (Visível para clientes)</span>
                   </div>
                 </div>
               </div>
@@ -271,7 +286,15 @@ export const AdminPlans = () => {
             )}
 
             <div className="mb-8">
-              <div className="text-xs text-gray-500 uppercase tracking-widest mb-2">{plan.type === 'package' ? 'Pacote de Horas' : 'Assinatura Mensal'}</div>
+              <div className="flex justify-between items-start">
+                <div className="text-xs text-gray-500 uppercase tracking-widest mb-2">{plan.type === 'package' ? 'Pacote de Horas' : 'Assinatura Mensal'}</div>
+                <div className={cn(
+                  "text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-widest",
+                  plan.active ? "bg-green-500/10 text-green-500" : "bg-red-500/10 text-red-500"
+                )}>
+                  {plan.active ? 'Ativo' : 'Inativo'}
+                </div>
+              </div>
               <h3 className="text-2xl font-black mb-4">{plan.name}</h3>
               <div className="flex items-baseline gap-1">
                 <span className="text-4xl font-black text-white">{formatCurrency(plan.price)}</span>

@@ -5,7 +5,7 @@ import dotenv from "dotenv";
 import { MercadoPagoConfig, Payment } from 'mercadopago';
 import admin from 'firebase-admin';
 import { getFirestore } from 'firebase-admin/firestore';
-import firebaseConfig from './firebase-applet-config.json';
+import firebaseConfig from './firebase-applet-config.json' with { type: 'json' };
 
 dotenv.config();
 
@@ -36,7 +36,7 @@ async function startServer() {
 
   // API Routes
   app.get("/api/health", (req, res) => {
-    res.json({ status: "ok", service: "CT Crossbol API" });
+    res.json({ status: "ok", service: "CTCrossBol Reserva API" });
   });
 
   // Cleanup Expired Bookings

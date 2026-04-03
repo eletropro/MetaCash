@@ -393,7 +393,7 @@ export const BookingPage = () => {
     const part4 = "5303986"; // Transaction Currency (986 = BRL)
     const part5 = `54${amountStr.length.toString().padStart(2, '0')}${amountStr}`; // Transaction Amount
     const part6 = "5802BR"; // Country Code
-    const part7 = "5913CT Crossbol"; // Merchant Name
+    const part7 = "5910CTCrossBol"; // Merchant Name (max 25 chars, adjusted length)
     const part8 = "6009SAO PAULO"; // Merchant City
     const part9 = "62070503***"; // Additional Data Field Template
     const part10 = "6304"; // CRC16 Indicator

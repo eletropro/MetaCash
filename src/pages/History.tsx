@@ -14,6 +14,7 @@ import { GlassCard } from '../components/GlassCard';
 import { formatCurrency, formatDate, formatTime } from '../lib/utils';
 import { collection, query, where, onSnapshot, doc, updateDoc } from 'firebase/firestore';
 import { db, auth } from '../firebase';
+import { handleFirestoreError, OperationType } from '../lib/firebase-utils';
 import { Booking } from '../types';
 import { AnimatePresence } from 'motion/react';
 import { X, Copy, Smartphone } from 'lucide-react';
@@ -107,6 +108,7 @@ export const History = () => {
   };
 
   const handleCancelBooking = async (bookingId: string) => {
+    const path = `tenants/main-ct/bookings/${bookingId}`;
     try {
       const bookingRef = doc(db, 'tenants', 'main-ct', 'bookings', bookingId);
       await updateDoc(bookingRef, {
@@ -116,8 +118,7 @@ export const History = () => {
       setConfirmCancel(false);
       setTimeout(() => setSelectedBooking(null), 2000);
     } catch (error) {
-      console.error("Erro ao cancelar reserva:", error);
-      setStatusMessage('Erro ao cancelar reserva.');
+      handleFirestoreError(error, OperationType.UPDATE, path);
     }
   };
 

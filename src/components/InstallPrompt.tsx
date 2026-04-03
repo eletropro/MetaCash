@@ -60,7 +60,7 @@ export default function InstallPrompt() {
               <Download size={24} />
             </div>
             <div className="flex-1">
-              <h4 className="text-sm font-bold text-zinc-900">Instalar MetaCash</h4>
+              <h4 className="text-sm font-bold text-zinc-900">Instalar CTCrossBol</h4>
               <p className="text-xs text-zinc-500">Acesse mais rápido direto da sua tela inicial.</p>
             </div>
             <div className="flex flex-col gap-2">

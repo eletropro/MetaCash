@@ -43,7 +43,7 @@ export const AdminSettings = () => {
   const [loading, setLoading] = useState(true);
   const [resetting, setResetting] = useState(false);
   const [settings, setSettings] = useState<SettingsData>({
-    name: 'CT Crossbol',
+    name: 'CTCrossBol Reserva',
     address: '',
     website: 'ct-crossbol',
     logo: '',

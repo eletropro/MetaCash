@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { Check, Zap, Star, Shield } from 'lucide-react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db, auth } from '../firebase';
+import { handleFirestoreError, OperationType } from '../lib/firebase-utils';
 import { GlassCard } from '../components/GlassCard';
 import { formatCurrency } from '../lib/utils';
 
@@ -21,42 +22,15 @@ export const Plans = () => {
 
   useEffect(() => {
     const fetchPlans = async () => {
+      const path = 'tenants/main-ct/plans';
       try {
         const q = query(collection(db, 'tenants', 'main-ct', 'plans'), where('active', '==', true));
         const snapshot = await getDocs(q);
         const plansData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Plan));
         
-        if (plansData.length === 0) {
-          // Fallback defaults if none in DB
-          setPlans([
-            {
-              id: '1',
-              name: 'Bronze',
-              price: 150,
-              type: 'monthly',
-              features: ['2 horas por mês', 'Reserva prioritária', 'Desconto de 5% em eventos'],
-            },
-            {
-              id: '2',
-              name: 'Silver',
-              price: 280,
-              type: 'monthly',
-              popular: true,
-              features: ['4 horas por mês', 'Reserva prioritária', 'Desconto de 10% em eventos', '1 convidado grátis/mês'],
-            },
-            {
-              id: '3',
-              name: 'Gold',
-              price: 500,
-              type: 'monthly',
-              features: ['Horas ilimitadas (sujeito a disponibilidade)', 'Reserva prioritária', 'Desconto de 20% em eventos', 'Convidados ilimitados'],
-            }
-          ]);
-        } else {
-          setPlans(plansData);
-        }
+        setPlans(plansData);
       } catch (error) {
-        console.error("Erro ao buscar planos:", error);
+        handleFirestoreError(error, OperationType.GET, path);
       } finally {
         setLoading(false);
       }
@@ -75,7 +49,7 @@ export const Plans = () => {
       <header className="text-center space-y-4">
         <h1 className="text-5xl font-black tracking-tighter neon-text">NOSSOS PLANOS</h1>
         <p className="text-gray-400 text-xl max-w-2xl mx-auto">
-          Escolha o plano que melhor se adapta ao seu ritmo e aproveite benefícios exclusivos no CT Crossbol.
+          Escolha o plano que melhor se adapta ao seu ritmo e aproveite benefícios exclusivos no CTCrossBol Reserva.
         </p>
       </header>
 
@@ -83,6 +57,12 @@ export const Plans = () => {
         <div className="flex justify-center py-20">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-neon"></div>
         </div>
+      ) : plans.length === 0 ? (
+        <GlassCard className="text-center py-20">
+          <Star className="mx-auto text-gray-600 mb-4" size={48} />
+          <h3 className="text-xl font-bold mb-2">Nenhum plano disponível no momento</h3>
+          <p className="text-gray-400">Fique atento! Em breve teremos novidades e planos exclusivos para você.</p>
+        </GlassCard>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {plans.map((plan, i) => (
